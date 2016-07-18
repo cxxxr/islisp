@@ -35,7 +35,7 @@ void name(int argc)\
 		case 1:\
 			break;\
 		case 2:\
-			is_add_2f();\
+			fun();\
 			break;\
 		default:\
 			while (--argc > 0) fun();\
@@ -52,7 +52,7 @@ static ISObject sub2(ISObject *a, ISObject *b)
 		int v = IS_INTEGER(*a) - IS_INTEGER(*b);
 		return is_make_integer(v);
 	} else {
-		return is_make_float(IS_INTEGER(*a) - IS_INTEGER(*b));
+		return is_make_float(to_double(*a) - to_double(*b));
 	}
 }
 
