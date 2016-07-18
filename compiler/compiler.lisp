@@ -40,8 +40,8 @@
     `(block nil
        (for ((,g ,list-form (cdr ,g)))
             ((null ,g) ,result-form)
-            (let ((,var (car ,g)))
-              ,@body)))))
+         (let ((,var (car ,g)))
+           ,@body)))))
 
 
 (defmacro push (obj place)
@@ -158,14 +158,14 @@
   (unless (and (listp lambda-list)
                (for ((l lambda-list (cdr l)))
                     ((null l) t)
-                    (let ((x (car l)))
-                      (cond ((not (symbolp x))
-                             (return nil))
-                            ((lambda-rest-symbol-p x)
-                             (unless (and (= 1 (length (cdr l)))
-                                          (symbolp (cadr l))
-                                          (not (lambda-rest-symbol-p (cadr l))))
-                               (return nil)))))))
+                 (let ((x (car l)))
+                   (cond ((not (symbolp x))
+                          (return nil))
+                         ((lambda-rest-symbol-p x)
+                          (unless (and (= 1 (length (cdr l)))
+                                       (symbolp (cadr l))
+                                       (not (lambda-rest-symbol-p (cadr l))))
+                            (return nil)))))))
     (syntax-error "Illegal lambda list: ~A" form)))
 
 (defun replace-list-with-alist (alist list)
@@ -195,12 +195,12 @@
           (when (or (and (null l) a)
                     (and l (null a)))
             (syntax-error "Invalid number of argnument: ~A" form)))
-         (push (if (lambda-rest-symbol-p (car l))
-                   (progn
-                     (push (list (cadr l) (cons 'list a)) bindings)
-                     (return nil))
-                   (list (car l) (car a)))
-               bindings))
+      (push (if (lambda-rest-symbol-p (car l))
+                (progn
+                  (push (list (cadr l) (cons 'list a)) bindings)
+                  (return nil))
+                (list (car l) (car a)))
+            bindings))
     (nreverse bindings)))
 
 (defun pass1-compound-form (x env)
@@ -479,30 +479,30 @@
         (max 0))
     (for ((l lambda-list (cdr l)))
          ((null l))
-         (cond ((lambda-rest-symbol-p (car l))
-                (setq code
-                      (genseq code
-                              (if (property (cadr l) 'heap-p)
-                                  (gen 'HEAP-VAR
-                                       (codegen-env-get env1 (cadr l))
-                                       (cadr l))
-                                  (gen 'LOCAL-VAR
-                                       (codegen-env-get env1 (cadr l))
-                                       (+ 1 (decf peek-offset))))))
-                (setq max nil)
-                (return nil))
-               (t
-                (setq code
-                      (genseq code
-                              (if (property (car l) 'heap-p)
-                                  (gen 'HEAP-VAR
-                                       (codegen-env-get env1 (car l))
-                                       (car l))
-                                  (gen 'LOCAL-VAR
-                                       (codegen-env-get env1 (car l))
-                                       (+ 1 (decf peek-offset))))))))
-         (incf min)
-         (incf max))
+      (cond ((lambda-rest-symbol-p (car l))
+             (setq code
+                   (genseq code
+                           (if (property (cadr l) 'heap-p)
+                               (gen 'HEAP-VAR
+                                    (codegen-env-get env1 (cadr l))
+                                    (cadr l))
+                               (gen 'LOCAL-VAR
+                                    (codegen-env-get env1 (cadr l))
+                                    (+ 1 (decf peek-offset))))))
+             (setq max nil)
+             (return nil))
+            (t
+             (setq code
+                   (genseq code
+                           (if (property (car l) 'heap-p)
+                               (gen 'HEAP-VAR
+                                    (codegen-env-get env1 (car l))
+                                    (car l))
+                               (gen 'LOCAL-VAR
+                                    (codegen-env-get env1 (car l))
+                                    (+ 1 (decf peek-offset))))))))
+      (incf min)
+      (incf max))
     (list code min max)))
 
 (defun revert-lambda-list (lambda-list)
@@ -612,11 +612,11 @@
 (defun cc-list-to-string (list)
   (let ((str ""))
     (for ((rest list (cdr rest)))
-	((null rest))
+         ((null rest))
       (setq str
-	    (if (cdr rest)
-		(string-append str (convert (car rest) <string>) ", ")
-		(string-append str (convert (car rest) <string>)))))
+            (if (cdr rest)
+                (string-append str (convert (car rest) <string>) ", ")
+                (string-append str (convert (car rest) <string>)))))
     str))
 
 (defun cc-add-const (ctx value)
