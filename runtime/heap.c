@@ -127,8 +127,8 @@ static void copy_gc(void)
 		*is_shelter[i] = copy(*is_shelter[i]);
 	}
 
-	for (int i = 0; i < (int)((is_stack_top - is_stack_low) / sizeof(ISObject)); i++) {
-		is_stack[i] = copy(is_stack[i]);
+	for (ISObject *p = is_stack_top; p >= is_stack_low; p--) {
+		*p = copy(*p);
 	}
 
 	is_current_env = copy(is_current_env);
