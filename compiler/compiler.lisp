@@ -1,13 +1,9 @@
-(ql:quickload :islisp-compat)
-(cl:in-package :islisp-compat)
-
 (defmacro when (test &rest body)
   `(if ,test (progn ,@body)))
 
 (defmacro unless (test &rest body)
   `(if (not ,test) (progn ,@body)))
 
-(defmacro return-from (name value)  `(cl:return-from ,name ,value))
 (defmacro return (x) `(return-from nil ,x))
 
 (defun first (x) (car x))
@@ -21,16 +17,16 @@
 (defun cdar (x) (cdr (car x)))
 (defun cddr (x) (cdr (cdr x)))
 
-(defun list* (&rest args)
-  (labels ((f (args)
-	     (cond ((null args)
-		    nil)
-		   ((null (cdr args))
-		    (car args))
-		   (t
-		    (cons (car args)
-			  (f (cdr args)))))))
-    (f args)))
+;; (defun list* (&rest args)
+;;   (labels ((f (args)
+;; 	     (cond ((null args)
+;; 		    nil)
+;; 		   ((null (cdr args))
+;; 		    (car args))
+;; 		   (t
+;; 		    (cons (car args)
+;; 			  (f (cdr args)))))))
+;;     (f args)))
 
 (defmacro dolist (var-and-list &rest body)
   (let ((var (car var-and-list))
@@ -84,25 +80,6 @@
 
 (defun syntax-error (msg &rest args)
   (apply #'error msg args))
-
-(defun is-compile-file (filename)
-  (with-open-input-file (in filename)
-    (let ((ctx (create (class context)))
-          (code nil))
-      (for ((x (read in nil) (read in nil)))
-           ((null x))
-        (setq code
-              (genseq code
-                      (codegen ctx (pass1 x nil) nil))))
-      )))
-
-(defun is-compile (x)
-  (let* ((ctx (create (class context)))
-         (code (codegen ctx (pass1 x nil) nil)))
-    (print-code code)
-    (print-context context)
-    (format (standard-output) "~A" (cc-top context))
-    t))
 
 (defun make-var (sym)
   (let ((gsym (gensym)))
@@ -216,7 +193,7 @@
   (let ((fst (car x)))
     (cond
 
-     ((eq fst 'cl:quote) ;!!!
+     ((eq fst 'quote)
       (check-arg-count x 1 1)
       (make-ast 'CONST (cadr x)))
 
@@ -525,7 +502,6 @@
   (remove-if #'lambda-rest-symbol-p lambda-list))
 
 (defun codegen-lambda-internal (ctx lambda-list body env)
-  (cl:declare (cl:ignore env))
   (let* ((arg-vars (codegen-filter-lambda-list-vars
                     lambda-list))
          (num-args (length arg-vars))
@@ -606,9 +582,9 @@
 (defdynamic *cc-stream* nil)
 
 (defun cc-format (indent string &rest args)
-  (format *cc-stream* (create-string indent #\tab))
-  (apply #'format *cc-stream* string args)
-  (format *cc-stream* "~%"))
+  (format (dynamic *cc-stream*) (create-string indent (convert 9 <character>)))
+  (apply #'format (dynamic *cc-stream*) string args)
+  (format (dynamic *cc-stream*) "~%"))
 
 (defun cc-list-to-string (list)
   (let ((str ""))
@@ -640,14 +616,14 @@
       (cc-format 0 "static ISObject ~A;" (cdr c)))
     (dolist (f (context-functions ctx))
       (cc-format 0 "static void ~A(int);" (is-function-label f)))
-    (get-output-stream-string *cc-stream*)))
+    (get-output-stream-string (dynamic *cc-stream*))))
 
 (defun cc-body (ctx)
   (dynamic-let ((*cc-stream* (create-string-output-stream)))
     (dolist (f (context-functions ctx))
       (cc-function ctx f))
     (cc-loader ctx)
-    (get-output-stream-string *cc-stream*)))
+    (get-output-stream-string (dynamic *cc-stream*))))
 
 (defun cc-loader (ctx)
   (cc-format 0 "static void loader(void)~%{")
@@ -701,10 +677,10 @@
       (let ((str
 	      (dynamic-let ((*cc-stream* (create-string-output-stream)))
 		(f var value)
-		(get-output-stream-string *cc-stream*))))
+		(get-output-stream-string (dynamic *cc-stream*)))))
 	(dolist (tmp tmp-vars)
 	  (cc-format 1 "ISObject ~A;" tmp))
-	(format *cc-stream* str)))))
+	(format (dynamic *cc-stream*) str)))))
 
 (defun cc-function (ctx function)
   (cc-add-const ctx (is-function-name function))
@@ -714,7 +690,6 @@
   (cc-format 0 "}"))
 
 (defun cc-instr (ctx function instr)
-  (cl:declare (cl:ignore function))
   (case (instr-op instr)
     ((CONST)
      (let ((v (cc-add-const ctx (instr-arg1 instr))))
@@ -777,3 +752,24 @@
      (cc-format 1 "return;"))
     (t
      (error "unknown instruction: ~A" (instr-op instr)))))
+
+
+
+(defun is-compile-file (filename)
+  (with-open-input-file (in filename)
+    (let ((ctx (create (class context)))
+          (code nil))
+      (for ((x (read in nil) (read in nil)))
+           ((null x))
+        (setq code
+              (genseq code
+                      (codegen ctx (pass1 x nil) nil))))
+      )))
+
+(defun is-compile (x)
+  (let* ((ctx (create (class context)))
+         (code (codegen ctx (pass1 x nil) nil)))
+    (print-code code)
+    (print-context ctx)
+    (format (standard-output) "~A" (cc-top ctx))
+    t))
