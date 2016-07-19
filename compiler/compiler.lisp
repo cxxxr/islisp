@@ -43,7 +43,6 @@
          (let ((,var (car ,g)))
            ,@body)))))
 
-
 (defmacro push (obj place)
   `(setf ,place (cons ,obj ,place)))
 
@@ -86,10 +85,20 @@
 (defun syntax-error (msg &rest args)
   (apply #'error msg args))
 
+(defun is-compile-file (filename)
+  (with-open-input-file (in filename)
+    (let ((ctx (create (class context)))
+          (code nil))
+      (for ((x (read in nil) (read in nil)))
+           ((null x))
+        (setq code
+              (genseq code
+                      (codegen ctx (pass1 x nil) nil))))
+      )))
+
 (defun is-compile (x)
-  (let* ((result (codegen-top (pass1 x nil)))
-         (code (car result))
-         (context (cadr result)))
+  (let* ((ctx (create (class context)))
+         (code (codegen ctx (pass1 x nil) nil)))
     (print-code code)
     (print-context context)
     (format (standard-output) "~A" (cc-top context))
@@ -315,11 +324,7 @@
     :accessor is-function-min)
    (max
     :initarg max
-    :accessor is-function-max)
-   ;; (vars
-   ;;  :initform nil
-   ;;  :accessor is-function-vars)
-   ))
+    :accessor is-function-max)))
 
 (defclass context ()
   ((uniq-counter
@@ -388,10 +393,6 @@
     (if v
         (cdr v)
         nil)))
-
-(defun codegen-top (x)
-  (let ((ctx (create (class context))))
-    (list (codegen ctx x nil) ctx)))
 
 (defun codegen (ctx x env)
   (case (ast-op x)
