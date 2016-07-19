@@ -190,96 +190,86 @@
     (nreverse bindings)))
 
 (defun pass1-compound-form (x env)
-  (let ((fst (car x)))
-    (cond
-
-     ((eq fst 'quote)
-      (check-arg-count x 1 1)
-      (make-ast 'CONST (cadr x)))
-
-     ((eq fst 'setq)
-      (check-arg-count x 2 2)
-      (unless (symbolp (cadr x))
-	(type-error x (cadr x) '<symbol>))
-      (let ((var (pass1-get-var (cadr x) env))
-            (val (pass1 (third x) env)))
-        (if var
-            (make-ast 'SET-LVAR var val)
-            (make-ast 'SET-GVAR (cadr x) val))))
-
-     ((eq fst 'let)
-      (let* ((binds
-              (mapcar (lambda (b)
-                        (unless (and (consp b)
-                                     (= 2 (length b))
-                                     (symbolp (car b)))
-                          (syntax-error "Illegal let form ~A" x))
-                        (list (make-var (cadr b))
-                              (pass1 (cadr b) env)))
-                      (cadr x)))
-             (body
-              (when (cddr x)
-                (pass1 `(progn ,@(cddr x))
-                       (append (mapcar (lambda (x y)
-                                         (cons (car x)
-                                               (car y)))
-                                       (cadr x)
-                                       binds)
-                               env)))))
-        (make-ast 'LET binds body)))
-
-     ((eq fst 'function)
-      (check-arg-count x 1 1)
-      (let ((arg (cadr x)))
-        (cond ((symbolp arg)
-               (make-ast 'FUNCTION arg))
-              ((lambda-form-p arg)
-               arg)
-              (t
-               (syntax-error "Illegal form ~A" x)))))
-
-     ((eq fst 'lambda)
-      (check-arg-count x 1 -1)
-      (pass1-funcbody x (cdr x) env
-                      (lambda (lambda-list body)
-                        (make-ast 'LAMBDA lambda-list body))))
-
-     ((eq fst 'defun)
-      (check-arg-count x 2 -1)
-      (unless (symbolp (cadr x))
-	(type-error x (cadr x) '<symbol>))
-      (pass1-funcbody x (cddr x) env
-                      (lambda (lambda-list body)
-                        (make-ast 'DEFUN (cadr x) lambda-list body))))
-
-     ((eq fst 'if)
-      (check-arg-count x 2 3)
-      (make-ast 'IF
-                (pass1 (second x) env)
-                (pass1 (third x) env)
-                (pass1 (fourth x) env)))
-
-     ((eq fst 'progn)
-      (make-ast 'PROGN
-                (mapcar (lambda (x) (pass1 x env))
-                        (cdr x))))
-
-     ((lambda-form-p (car x))
-      (let* ((lambda-form (car x))
-             (args (cdr x))
-             (bindings (dset-lambda-list x lambda-form args)))
-        (pass1 `(let ,bindings
-                  ,@(cddr lambda-form))
-               env)))
-
-     ((symbolp (car x))
-      (make-ast 'CALL
-                (car x)
-                (mapcar (lambda (arg)
-                          (pass1 arg env))
-                        (cdr x))))
-     (t
-      (syntax-error "Illegal form ~A" x)))))
+  (case (car x)
+        ((quote)
+         (check-arg-count x 1 1)
+         (make-ast 'CONST (second x)))
+        ((setq)
+         (check-arg-count x 2 2)
+         (unless (symbolp (second x))
+           (type-error x (second x) '<symbol>))
+         (let ((var (pass1-get-var (second x) env))
+               (val (pass1 (third x) env)))
+           (if var
+               (make-ast 'SET-LVAR var val)
+             (make-ast 'SET-GVAR (second x) val))))
+        ((let)
+         (let* ((binds
+                 (mapcar (lambda (b)
+                           (unless (and (consp b)
+                                        (= 2 (length b))
+                                        (symbolp (car b)))
+                             (syntax-error "Illegal let form ~A" x))
+                           (list (make-var (cadr b))
+                                 (pass1 (cadr b) env)))
+                         (cadr x)))
+                (body
+                 (when (cddr x)
+                   (pass1 `(progn ,@(cddr x))
+                          (append (mapcar (lambda (x y)
+                                            (cons (car x)
+                                                  (car y)))
+                                          (cadr x)
+                                          binds)
+                                  env)))))
+           (make-ast 'LET binds body)))
+        ((function)
+         (check-arg-count x 1 1)
+         (let ((arg (cadr x)))
+           (cond ((symbolp arg)
+                  (make-ast 'FUNCTION arg))
+                 ((lambda-form-p arg)
+                  arg)
+                 (t
+                  (syntax-error "Illegal form ~A" x)))))
+        ((lambda)
+         (check-arg-count x 1 -1)
+         (pass1-funcbody x (cdr x) env
+                         (lambda (lambda-list body)
+                           (make-ast 'LAMBDA lambda-list body))))
+        ((defun)
+         (check-arg-count x 2 -1)
+         (unless (symbolp (cadr x))
+           (type-error x (cadr x) '<symbol>))
+         (pass1-funcbody x (cddr x) env
+                         (lambda (lambda-list body)
+                           (make-ast 'DEFUN (cadr x) lambda-list body))))
+        ((if)
+         (check-arg-count x 2 3)
+         (make-ast 'IF
+                   (pass1 (second x) env)
+                   (pass1 (third x) env)
+                   (pass1 (fourth x) env)))
+        ((progn)
+         (make-ast 'PROGN
+                   (mapcar (lambda (x) (pass1 x env))
+                           (cdr x))))
+        (t
+         (cond ((lambda-form-p (car x))
+                (let* ((lambda-form (car x))
+                       (args (cdr x))
+                       (bindings (dset-lambda-list x lambda-form args)))
+                  (pass1 `(let ,bindings
+                            ,@(cddr lambda-form))
+                         env)))
+               ((symbolp (car x))
+                (make-ast 'CALL
+                          (car x)
+                          (mapcar (lambda (arg)
+                                    (pass1 arg env))
+                                  (cdr x))))
+               (t
+                (syntax-error "Illegal form ~A" x))))))
 
 
 (defclass is-function ()
