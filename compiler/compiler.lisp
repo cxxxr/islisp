@@ -268,13 +268,18 @@
      (pass1-funcbody x (cdr x)
                      (lambda (lambda-list body)
                        (make-ast 'LAMBDA lambda-list body))))
-    ((DEFUN)
+    ((DEFUN DEFMACRO)
      (check-arg-count x 2 -1)
      (unless (symbolp (second x))
        (type-error x (second x) '<symbol>))
-     (pass1-funcbody x (cddr x)
-                     (lambda (lambda-list body)
-                       (make-ast 'DEFUN (second x) lambda-list body))))
+     (cond ((eq 'DEFUN (first x))
+            (pass1-funcbody x (cddr x)
+                            (lambda (lambda-list body)
+                              (make-ast 'DEFUN (second x) lambda-list body))))
+           (t
+            (check-lambda-list x (third x))
+            (set-property (cddr x) (second x) 'macro)
+            (make-ast 'CONST (second x)))))
     ((IF)
      (check-arg-count x 2 3)
      (make-ast 'IF
@@ -290,20 +295,27 @@
     ((GO)
      (pass1-go x))
     (t
-     (cond ((lambda-form-p (car x))
-            (let* ((lambda-form (car x))
-                   (args (cdr x))
-                   (bindings (dset-lambda-list x lambda-form args)))
-              (pass1 `(let ,bindings
-                        ,@(cddr lambda-form)))))
-           ((symbolp (car x))
-            (make-ast 'CALL
-                      (car x)
-                      (mapcar (lambda (arg)
-                                (pass1 arg))
-                              (cdr x))))
-           (t
-            (syntax-error "Illegal form ~A" x))))))
+     (cond
+      ((lambda-form-p (car x))
+       (let* ((lambda-form (car x))
+              (args (cdr x))
+              (bindings (dset-lambda-list x lambda-form args)))
+         (pass1 `(let ,bindings
+                   ,@(cddr lambda-form)))))
+      ((symbolp (car x))
+       (let ((macro (property (car x) 'macro)))
+         (cond (macro
+                (pass1 (eval `((lambda ,@macro)
+                               ,@(mapcar (lambda (x) `(quote ,x))
+                                         (cdr x))))))
+               (t
+                (make-ast 'CALL
+                          (car x)
+                          (mapcar (lambda (arg)
+                                    (pass1 arg))
+                                  (cdr x)))))))
+      (t
+       (syntax-error "Illegal form ~A" x))))))
 
 
 (defclass is-function ()
