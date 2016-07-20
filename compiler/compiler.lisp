@@ -39,8 +39,17 @@
          (let ((,var (car ,g)))
            ,@body)))))
 
+(defmacro dotimes (vars &rest forms)
+   `(for ((,(car vars) 0 (+ 1 ,(car vars)))) ((>= ,(car vars) ,(second vars)) nil) . ,forms))
+
 (defmacro push (obj place)
   `(setf ,place (cons ,obj ,place)))
+
+(defmacro pop (place)
+  (let ((g (gensym)))
+    `(let ((,g (car ,place)))
+       (setf ,place (cdr ,place))
+       ,g)))
 
 (defun remove-if (test list)
   (let ((acc nil))
@@ -54,6 +63,14 @@
     (dolist (x list)
       (when (funcall test x)
         (push x acc)))
+    (nreverse acc)))
+
+(defun filter (fun list)
+  (let ((acc nil))
+    (dolist (x list)
+      (let ((res (funcall fun x)))
+        (when res
+          (push res acc))))
     (nreverse acc)))
 
 (defmacro incf (x)
@@ -137,59 +154,104 @@
   (and (consp form)
        (eq 'lambda (car form))
        (progn
-	 (check-lambda-list form (cadr form))
+	 (let ((new-lambda-list (pass1-lambda-list form (cadr form))))
+           (set-car new-lambda-list (cdr form)))
 	 t)))
 
 (defun lambda-rest-symbol-p (x)
   (or (eq x ':rest)
       (eq x '&rest)))
 
-(defun check-lambda-list (form lambda-list)
-  (unless (and (listp lambda-list)
-               (for ((l lambda-list (cdr l)))
-                    ((null l) t)
-                 (let ((x (car l)))
-                   (cond ((not (symbolp x))
-                          (return nil))
-                         ((lambda-rest-symbol-p x)
-                          (unless (and (= 1 (length (cdr l)))
-                                       (symbolp (cadr l))
-                                       (not (lambda-rest-symbol-p (cadr l))))
-                            (return nil)))))))
-    (syntax-error "Illegal lambda list: ~A" form)))
+(defun lambda-optional-symbol-p (x)
+  (or (eq x ':optional)
+      (eq x '&optional)))
 
-(defun replace-list-with-alist (alist list)
-  (mapcar (lambda (x)
-	    (let ((v (assoc x alist)))
-	      (if v (cdr v) x)))
-          list))
+(defun lambda-symbol-p (x)
+  (or (lambda-rest-symbol-p x)
+      (lambda-optional-symbol-p x)))
+
+(defun pass1-lambda-list (form lambda-list)
+  (let ((vars nil)
+        (optional-vars nil)
+        (rest-var nil))
+    (tagbody
+      (unless (listp lambda-list)
+        (go :ERROR))
+      (for ((rest lambda-list (cdr rest))
+            (optional-p nil))
+           ((null rest) (go :END))
+        (let ((x (car rest)))
+          (cond ((lambda-rest-symbol-p x)
+                 (unless (and (= (length rest) 2)
+                              (symbolp (cadr rest))
+                              (not (lambda-symbol-p (cadr rest))))
+                   (go :ERROR))
+                 (setq rest-var (cadr rest))
+                 (go :END))
+                ((lambda-optional-symbol-p x)
+                 (setq optional-p t))
+                (optional-p
+                 (cond ((symbolp x)
+                        (push (list x nil) optional-vars))
+                       ((not (and (consp x) (= (length x) 2)))
+                        (go :ERROR))
+                       (t
+                        (push (list (car x) (cadr x)) optional-vars))))
+                ((not (symbolp x))
+                 (go :ERROR))
+                (t
+                 (push x vars)))))
+      :ERROR
+      (syntax-error "Illegal lambda list: ~A" form)
+      :END)
+    (list (nreverse vars)
+          (nreverse optional-vars)
+          rest-var)))
+
+(defun replace-lambda-list-with-alist (alist lambda-list)
+  (cond ((null lambda-list)
+         nil)
+        ((symbolp lambda-list)
+         (let ((res (assoc lambda-list alist)))
+           (if (null res) lambda-list (cdr res))))
+        ((not (consp lambda-list))
+         lambda-list)
+        (t
+         (cons (replace-lambda-list-with-alist alist (car lambda-list))
+               (replace-lambda-list-with-alist alist (cdr lambda-list))))))
+
+(defun lambda-list-vars (lambda-list)
+  (append (first lambda-list)
+          (mapcar #'car (second lambda-list))
+          (if (third lambda-list)
+              (list (third lambda-list)))))
 
 (defun pass1-funcbody (form x make-ast-function)
   (let ((lambda-list (car x)))
-    (check-lambda-list form lambda-list)
-    (let* ((vars (remove-if #'lambda-rest-symbol-p
-                            lambda-list))
+    (setq lambda-list (pass1-lambda-list form lambda-list))
+    (let* ((vars (lambda-list-vars lambda-list))
            (env1 (mapcar (lambda (v)
                            (cons v (make-var v)))
                          vars)))
       (funcall make-ast-function
-               (replace-list-with-alist env1 lambda-list)
+               (replace-lambda-list-with-alist env1 lambda-list)
                (dynamic-let ((*pass1-env* (append env1 (dynamic *pass1-env*))))
                             (pass1 `(progn ,@(cdr x))))))))
 
-(defun dset-lambda-list (form lambda-form args)
+(defun dset-lambda-list (form lambda-list args)
   (let ((bindings nil))
-    (for ((l (cadr lambda-form) (cdr l))
-          (a args (cdr a)))
-         ((or (null l) (null a))
-          (when (or (and (null l) a)
-                    (and l (null a)))
-            (syntax-error "Invalid number of argnument: ~A" form)))
-      (push (if (lambda-rest-symbol-p (car l))
-                (progn
-                  (push (list (cadr l) (cons 'list a)) bindings)
-                  (return nil))
-                (list (car l) (car a)))
+    (dolist (v (first lambda-list))
+      (push (list v (pop args))
+            bindings))
+    (dolist (v (second lambda-list))
+      (push (list (car v)
+                  (if (null args)
+                      (cadr v)
+                      (pop args)))
+            bindings))
+    (when (third lambda-list)
+      (push (list (third lambda-list)
+                  (cons 'list args))
             bindings))
     (nreverse bindings)))
 
@@ -273,9 +335,8 @@
                             (lambda (lambda-list body)
                               (make-ast 'DEFUN (second x) lambda-list body))))
            (t
-            (check-lambda-list x (third x))
             (set-property (cddr x) (second x) 'macro)
-            (make-ast 'CONST (second x)))))
+            (make-ast 'CONST (cadr x)))))
     ((IF)
      (check-arg-count x 2 3)
      (make-ast 'IF
@@ -295,7 +356,7 @@
       ((lambda-form-p (car x))
        (let* ((lambda-form (car x))
               (args (cdr x))
-              (bindings (dset-lambda-list x lambda-form args)))
+              (bindings (dset-lambda-list x (cadr lambda-form) args)))
          (pass1 `(let ,bindings
                    ,@(cddr lambda-form)))))
       ((symbolp (car x))
@@ -327,13 +388,7 @@
     :accessor is-function-label)
    (code
     :initarg code
-    :accessor is-function-code)
-   (min
-    :initarg min
-    :accessor is-function-min)
-   (max
-    :initarg max
-    :accessor is-function-max)))
+    :accessor is-function-code)))
 
 (defclass context ()
   ((uniq-counter
@@ -486,43 +541,31 @@
                 body-code
                 (gen 'NIP stack-push-count))))))
 
-(defun codegen-lambda-list (lambda-list env1 num-args)
+(defun codegen-lambda-list (vars env1 num-args)
   (let ((peek-offset num-args)
-        (code nil)
-        (min 0)
-        (max 0))
-    (for ((l lambda-list (cdr l)))
-         ((null l))
-      (cond ((lambda-rest-symbol-p (car l))
-             (setq code
-                   (genseq code
-                           (if (property (cadr l) 'heap-p)
-                               (gen 'HEAP-VAR
-                                    (codegen-env-get env1 (cadr l))
-                                    (cadr l))
-                               (gen 'LOCAL-VAR
-                                    (codegen-env-get env1 (cadr l))
-                                    (+ 1 (decf peek-offset))))))
-             (setq max nil)
-             (return nil))
-            (t
-             (setq code
-                   (genseq code
-                           (if (property (car l) 'heap-p)
-                               (gen 'HEAP-VAR
-                                    (codegen-env-get env1 (car l))
-                                    (car l))
-                               (gen 'LOCAL-VAR
-                                    (codegen-env-get env1 (car l))
-                                    (+ 1 (decf peek-offset))))))))
-      (incf min)
-      (incf max))
-    (list code min max)))
+        (code nil))
+    (dolist (v vars)
+      (setq code
+            (genseq code
+                    (if (property v 'heap-p)
+                        (gen 'HEAP-VAR
+                             (codegen-env-get env1 v)
+                             v)
+                      (gen 'LOCAL-VAR
+                           (codegen-env-get env1 v)
+                           (+ 1 (decf peek-offset)))))))
+    code))
 
 (defun revert-lambda-list (lambda-list)
   (mapcar (lambda (x)
-            (or (property x 'name) x))
-          lambda-list))
+            (if (lambda-symbol-p x)
+                x
+              (property x 'name)))
+          (append (first lambda-list)
+                  (if (second lambda-list)
+                      (cons '&optional (mapcar #'car (second lambda-list))))
+                  (if (third lambda-list)
+                      (list '&rest (third lambda-list))))))
 
 (defun codegen-lambda-load-env (heap-vars)
   (let ((code nil))
@@ -534,25 +577,28 @@
                          (car e)))))
     code))
 
-(defun codegen-filter-lambda-list-vars (lambda-list)
-  (remove-if #'lambda-rest-symbol-p lambda-list))
+(defun lambda-list-min-max (lambda-list)
+  (let* ((min (length (first lambda-list)))
+         (max (if (third lambda-list)
+                  nil
+                (+ min (length (second lambda-list))))))
+    (cons min max)))
 
 (defun codegen-lambda-internal (ctx lambda-list body env)
-  (let* ((arg-vars (codegen-filter-lambda-list-vars
-                    lambda-list))
+  (let* ((arg-vars (lambda-list-vars lambda-list))
          (num-args (length arg-vars))
          (env1 (codegen-make-env1 ctx arg-vars))
          (prev-heap-vars (context-heap-vars ctx)))
     (let ((body-code (codegen ctx body env1)))
       (let* ((extend-env-code (codegen-extend-env env1))
              (load-env-code (codegen-lambda-load-env (context-heap-vars ctx))))
-        (let* ((_vals (codegen-lambda-list lambda-list env1 num-args))
-               (lambda-list-code (first _vals))
-               (min (second _vals))
-               (max (third _vals)))
+        (let* ((lambda-list-code (codegen-lambda-list arg-vars env1 num-args))
+               (min-max (lambda-list-min-max lambda-list))
+               (min (car min-max))
+               (max (cdr min-max)))
           (let ((function
                  (create (class is-function)
-                         'lambda-list (revert-lambda-list lambda-list)
+                         'lambda-list lambda-list
                          'label (gen-uniq ctx "F")
                          'code (genseq (gen 'ARGS min max)
                                        extend-env-code
@@ -560,9 +606,7 @@
                                        load-env-code
                                        body-code
                                        (when (/= 0 num-args) (gen 'NIP num-args))
-                                       (gen 'RETURN))
-                         'min min
-                         'max max)))
+                                       (gen 'RETURN)))))
             (codegen-add-function ctx function)
             (setf (context-heap-vars ctx) prev-heap-vars)
             function))))))
@@ -761,14 +805,34 @@
                 (instr-arg2 instr)))
     ((ARGS)
      (let ((min (instr-arg1 instr))
-           (max (instr-arg2 instr)))
-       (cond ((null max)
+           (max (instr-arg2 instr))
+           (optional-vars (second (is-function-lambda-list function))))
+       (cond ((eql min max)
+              (cc-format 1 "if (argc != ~A) is_argc_error();" min))
+             ((null optional-vars)
               (cc-format 1 "if (argc < ~A) is_argc_error();" min)
               (cc-format 1 "is_stack_build_list(argc-~A);" min))
-             ((= min max)
-              (cc-format 1 "if (argc != ~A) is_argc_error();" min))
              (t
-              (error "unsupported optional parameter")))))
+              (cc-format 1 "switch (argc) {")
+              (dotimes (i min)
+                (cc-format 2 "case ~A:" i))
+              (cc-format 3 "is_argc_error();")
+              (cc-format 3 "break;")
+              (let ((i min))
+                (dolist (v optional-vars)
+                  (cc-format 2 "case ~A:" i)
+                  (cc-format 3 "is_stack_push(~A);" (cc-add-const ctx (cadr v)))
+                  (incf i))
+                (cond ((null max)
+                       (cc-format 3 "is_stack_push(nil);")
+                       (cc-format 3 "break;")
+                       (cc-format 2 "default:")
+                       (cc-format 3 "is_stack_build_list(argc-~A);" (+ min (length optional-vars))))
+                      (t
+                       (cc-format 3 "break;")
+                       (cc-format 2 "default:")
+                       (cc-foramt 3 "is_argc_error();")))
+                (cc-format 1 "}"))))))
     ((EXTEND-ENV)
      (let ((n (instr-arg1 instr))
            (peeks (instr-arg2 instr)))
