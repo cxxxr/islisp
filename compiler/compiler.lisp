@@ -320,7 +320,7 @@
      (check-arg-count x 1 1)
      (unless (second x)
        (type-error x (second x) '<symbol>))
-     (make-ast 'FUNCTION arg))
+     (make-ast 'FUNCTION (second x)))
     ((LAMBDA)
      (check-arg-count x 1 -1)
      (pass1-funcbody x (cdr x)
@@ -342,7 +342,9 @@
      (make-ast 'IF
                (pass1 (second x))
                (pass1 (third x))
-               (pass1 (fourth x))))
+               (if (cdr (cdr (cdr x)))
+                   (pass1 (fourth x))
+                 (make-ast 'CONST nil))))
     ((PROGN)
      (make-ast 'PROGN
                (mapcar (lambda (x) (pass1 x))
@@ -747,11 +749,15 @@
 		      (cc-format 1 "~A = is_nil;" var)
 		      var)
 		     ((symbolp value)
-		      (let ((tmp (gen-uniq ctx "TMP_")))
-			(push tmp tmp-vars)
-			(setq tmp (f tmp (convert value <string>)))
-			(cc-format 1 "~A = is_intern(&~A);" var tmp)
-			var))
+                      (if (ignore-errors (convert value <string>) t) ; value is not gensym
+                          (let ((tmp (gen-uniq ctx "TMP_")))
+                            (push tmp tmp-vars)
+                            (setq tmp (f tmp (convert value <string>)))
+                            (cc-format 1 "~A = is_intern(&~A);" var tmp)
+                            var)
+                        (progn
+                          (cc-format 1 "~A = is_gensym();" var)
+                          var)))
 		     ((integerp value)
 		      (cc-format 1 "~A = is_make_integer(~A);" var value)
 		      var)
@@ -761,6 +767,8 @@
 		     ((stringp value)
 		      (cc-format 1 "~A = is_make_string(\"~A\");" var value)
 		      var)
+                     ((characterp value)
+                      (cc-format 1 "~A = is_make_character(~D);" var (convert value <integer>)))
 		     ((consp value)
 		      (let ((car-var (f (gen-uniq ctx "TMP_") (car value)))
 			    (cdr-var (f (gen-uniq ctx "TMP_") (cdr value))))
@@ -831,7 +839,7 @@
                       (t
                        (cc-format 3 "break;")
                        (cc-format 2 "default:")
-                       (cc-foramt 3 "is_argc_error();")))
+                       (cc-format 3 "is_argc_error();")))
                 (cc-format 1 "}"))))))
     ((EXTEND-ENV)
      (let ((n (instr-arg1 instr))
@@ -871,16 +879,18 @@
 
 
 
-(defun is-compile-file (filename)
-  (with-open-input-file (in filename)
-    (let ((ctx (create (class context)))
-          (code nil))
-      (for ((x (read in nil) (read in nil)))
-           ((null x))
-        (setq code
-              (genseq code
-                      (codegen ctx (pass1 x) nil))))
-      )))
+(defun is-compile-file (&rest filenames)
+  (let ((ctx (create (class context)))
+        (code nil))
+    (dolist (filename filenames)
+      (with-open-input-file (in filename)
+                            (for ((x (read in nil) (read in nil)))
+                                 ((null x))
+                                 (setq code
+                                       (genseq code
+                                               (codegen ctx (pass1 x) nil))))))
+    (format (standard-output) "~A~%" (cc-top ctx))
+    t))
 
 (defun is-compile (x)
   (let* ((ctx (create (class context)))
