@@ -405,7 +405,10 @@
     :accessor context-heap-vars)
    (constant-list
     :initform nil
-    :accessor context-constant-list)))
+    :accessor context-constant-list)
+   (jmpbuf-vars
+    :initform nil
+    :accessor context-jmpbuf-vars)))
 
 (defun print-code (code)
   (dolist (instr code)
@@ -645,19 +648,38 @@
 
 (defun codegen-tagbody (ctx tags forms env)
   (let ((env (append (mapcar (lambda (tag)
-                               (cons tag (gen-uniq ctx "TAG_")))
+                               (let ((ctag (gen-uniq ctx "TAG_")))
+                                 (set-property ctag tag 'tag)
+                                 (cons tag ctag)))
                              tags)
                      env)))
-    (genseq (mapcan (lambda (form)
-                      (if (symbolp form)
-                          (gen 'LABEL (codegen-env-get env form))
-                        (genseq (codegen ctx form env)
-                                (gen 'POP))))
-                    forms)
-            (gen 'CONST nil))))
+    (let ((code (genseq (mapcan (lambda (form)
+                                  (if (symbolp form)
+                                      (gen 'LABEL (codegen-env-get env form))
+                                    (genseq (codegen ctx form env)
+                                            (gen 'POP))))
+                                forms)
+                        (gen 'CONST nil))))
+      (let ((n 0)
+            (longtags nil))
+        (dolist (tag tags)
+          (when (property tag 'long-jump-p)
+            (set-property (incf n) tag 'go-number)
+            (push tag longtags)))
+        (setq longtags (nreverse longtags))
+        (if longtags
+            (genseq (gen 'TAGBODY-START longtags)
+                    code
+                    (gen 'TAGBODY-END longtags))
+          code)))))
 
 (defun codegen-go (ctx tag env)
-  (gen 'JUMP (codegen-env-get env tag)))
+  (let ((res (codegen-env-get env tag)))
+    (cond (res
+           (gen 'JUMP res))
+          (t
+           (set-property t tag 'long-jump-p)
+           (gen 'LONG-JUMP tag)))))
 
 (defun codegen-call (ctx func args env)
   (let ((code nil)
@@ -678,20 +700,21 @@
   (third instr))
 
 (defdynamic *cc-stream* nil)
+(defdynamic *cc-indent-offset* 0)
 
 (defun cc-format (indent string &rest args)
-  (format (dynamic *cc-stream*) (create-string indent (convert 9 <character>)))
+  (format (dynamic *cc-stream*) (create-string (+ indent (dynamic *cc-indent-offset*)) (convert 9 <character>)))
   (apply #'format (dynamic *cc-stream*) string args)
   (format (dynamic *cc-stream*) "~%"))
 
-(defun cc-list-to-string (list)
+(defun cc-list-to-string (list prefix-str separator-str)
   (let ((str ""))
     (for ((rest list (cdr rest)))
          ((null rest))
       (setq str
             (if (cdr rest)
-                (string-append str (convert (car rest) <string>) ", ")
-                (string-append str (convert (car rest) <string>)))))
+                (string-append prefix-str str (convert (car rest) <string>) separator-str)
+                (string-append prefix-str str (convert (car rest) <string>)))))
     str))
 
 (defun cc-add-const (ctx value)
@@ -712,6 +735,8 @@
     (cc-format 0 "#include \"lisp.h\"")
     (dolist (c (context-constant-list ctx))
       (cc-format 0 "static ISObject ~A;" (cdr c)))
+    (dolist (c (context-jmpbuf-vars ctx))
+      (cc-format 0 "static jmp_buf ~A;" c))
     (dolist (f (context-functions ctx))
       (cc-format 0 "static void ~A(int);" (is-function-label f)))
     (get-output-stream-string (dynamic *cc-stream*))))
@@ -793,6 +818,34 @@
     (cc-instr ctx function instr))
   (cc-format 0 "}"))
 
+(defun cc-tagbody-start (ctx function instr)
+  (cc-format 1 "{")
+  (let ((tags (instr-arg1 instr))
+        (tag-array-var (gen-uniq ctx "tag_array_"))
+       (jmpbuf-var (gen-uniq ctx "jmpbuf_")))
+    (push jmpbuf-var (context-jmpbuf-vars ctx))
+    (dolist (tag tags) (set-property jmpbuf-var tag 'jmpbuf))
+    (cc-format 2 "void *~A[] = {~A};"
+               tag-array-var
+               (cc-list-to-string
+                (mapcar (lambda (tag)
+                          (property tag 'tag))
+                        tags)
+                "&&" ", "))
+    (let ((tmp-var (gen-uniq ctx "tmp_")))
+      (cc-format 2 "int ~A = setjmp(~A);" tmp-var jmpbuf-var)
+      (cc-format 2 "if (~A != 0) goto *~A[~A-1];" tmp-var tag-array-var tmp-var))
+    (incf (dynamic *cc-indent-offset*))))
+
+(defun cc-tagbody-end (ctx function instr)
+  (decf (dynamic *cc-indent-offset*))
+  (cc-format 1 "}"))
+
+(defun cc-longjmp (ctx function instr)
+  (cc-format 1 "longjmp(~A, ~A);"
+             (property (instr-arg1 instr) 'jmpbuf)
+             (property (instr-arg1 instr) 'go-number)))
+
 (defun cc-instr (ctx function instr)
   (case (instr-op instr)
     ((CONST)
@@ -847,7 +900,7 @@
        (cc-format 1
 		  "is_env_extend(~A, ~A);"
 		  n
-		  (cc-list-to-string (reverse peeks)))))
+		  (cc-list-to-string (reverse peeks) "" ", "))))
     ((CLOSE)
      (cc-format 1 "is_stack_push(is_make_closure(~A));" (is-function-label (instr-arg1 instr))))
     ((HEAP-VAR)
@@ -871,7 +924,13 @@
     ((JUMP)
      (cc-format 1 "goto ~A;" (instr-arg1 instr)))
     ((LABEL)
-     (cc-format 0 "~A:" (instr-arg1 instr)))
+     (cc-format 0 "~A:;" (instr-arg1 instr)))
+    ((TAGBODY-START)
+     (cc-tagbody-start ctx function instr))
+    ((TAGBODY-END)
+     (cc-tagbody-end ctx function instr))
+    ((LONG-JUMP)
+     (cc-longjmp ctx function instr))
     ((RETURN)
      (cc-format 1 "return;"))
     (t
