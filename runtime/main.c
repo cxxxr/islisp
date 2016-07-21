@@ -1,7 +1,7 @@
 #define _IS_MAIN_
 
 #include "lisp.h"
-#include "OUTPUT.c"
+#include "OUTPUT.C"
 
 int main(void)
 {

@@ -938,6 +938,8 @@
 
 
 
+(defglobal *output-file* "OUTPUT.C")
+
 (defun is-compile-file (&rest filenames)
   (let ((ctx (create (class context)))
         (code nil))
@@ -948,7 +950,10 @@
                                  (setq code
                                        (genseq code
                                                (codegen ctx (pass1 x) nil))))))
-    (format (standard-output) "~A~%" (cc-top ctx))
+    (if (null *output-file*)
+        (format (standard-output) "~A~%" (cc-top ctx))
+      (with-open-output-file (out *output-file*)
+                             (format out "~A~%" (cc-top ctx))))
     t))
 
 (defun is-compile (x)
