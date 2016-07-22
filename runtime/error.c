@@ -1,9 +1,22 @@
 #include "lisp.h"
 
-void is_error(const char *msg)
+void is_error(const char *msg, ...)
 {
-	fprintf(stderr, "%s\n", msg);
-	exit(EXIT_FAILURE);
+	va_list ap;
+	va_start(ap, msg);
+
+	for (int i = 0; msg[i] != '\0'; i++) {
+		if (msg[i] == '%') {
+			ISObject v = va_arg(ap, ISObject);
+			is_print(v, stdout);
+		} else {
+			putchar(msg[i]);
+		}
+	}
+
+	puts("");
+	va_end(ap);
+	abort();
 }
 
 void is_argc_error(void)
@@ -21,7 +34,12 @@ void is_type_error(ISObject IS_UNUSED(obj), enum ISType IS_UNUSED(type))
 	is_error("type error");
 }
 
-void is_undefined_function(ISObject IS_UNUSED(symbol))
+void is_undefined_function(ISObject symbol)
 {
-	is_error("undefined function");
+	is_error("undefined function: %", symbol);
+}
+
+void is_unbound_variable(ISObject symbol)
+{
+	is_error("unbound variable: %", symbol);
 }

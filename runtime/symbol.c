@@ -12,7 +12,7 @@ static int hashval(const char *str)
 	for (int i = 0; str[i] != '\0'; i++) {
 		val += str[i];
 	}
-	return val;
+	return val % is_symbol_table_size;
 }
 
 static void init_symbol_table(void)
@@ -35,13 +35,10 @@ ISObject is_intern(ISObject *string)
 		if (IS_NULL(is_symbol_table[val])) {
 			is_symbol_table[val] = is_make_symbol(string);
 			return is_symbol_table[val];
-		} else
-		    if (!strcmp
-			(IS_STRING_DATA(IS_SYMBOL_NAME(is_symbol_table[val])),
-			 p)) {
+		} else if (!strcmp(IS_STRING_DATA(IS_SYMBOL_NAME(is_symbol_table[val])), p)) {
 			return is_symbol_table[val];
 		} else {
-			val = val + k * k;
+			val = (val + k * k) % is_symbol_table_size;
 			k++;
 		}
 	}
@@ -55,6 +52,24 @@ ISObject is_bool_to_object(bool b)
 void is_symbol_set_function(ISObject symbol, ISObject function)
 {
 	IS_SYMBOL_FUNCTION(symbol) = function;
+}
+
+ISObject is_symbol_global(ISObject symbol)
+{
+	if (IS_NULL(IS_SYMBOL_GLOBAL(symbol)))
+		is_unbound_variable(symbol);
+	return IS_SYMBOL_GLOBAL(symbol);
+}
+
+void is_symbol_set_global(ISObject symbol, ISObject value)
+{
+	// write barrior
+	IS_SYMBOL_GLOBAL(symbol) = value;
+}
+
+ISObject is_gensym(void)
+{
+	return is_make_symbol(NULL);
 }
 
 void is_add_builtin_function(const char *name, ISFuncPtr ptr, int min, int max)

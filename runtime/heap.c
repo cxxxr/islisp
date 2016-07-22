@@ -99,8 +99,12 @@ static void copy_obj_children(ISObject obj)
 		case IS_SYMBOL_TYPE:
 			if (!IS_NULL(IS_SYMBOL_NAME(obj)))
 				IS_SYMBOL_NAME(obj) = copy(IS_SYMBOL_NAME(obj));
-			if (!IS_NULL(IS_SYMBOL_VALUE(obj)))
-				IS_SYMBOL_VALUE(obj) = copy(IS_SYMBOL_VALUE(obj));
+			if (!IS_NULL(IS_SYMBOL_GLOBAL(obj)))
+				IS_SYMBOL_GLOBAL(obj) = copy(IS_SYMBOL_GLOBAL(obj));
+			if (!IS_NULL(IS_SYMBOL_DYNAMIC(obj)))
+				IS_SYMBOL_DYNAMIC(obj) = copy(IS_SYMBOL_DYNAMIC(obj));
+			if (!IS_NULL(IS_SYMBOL_PROPERTY(obj)))
+				IS_SYMBOL_PROPERTY(obj) = copy(IS_SYMBOL_PROPERTY(obj));
 			if (!IS_NULL(IS_SYMBOL_FUNCTION(obj)))
 				IS_SYMBOL_FUNCTION(obj) = copy(IS_SYMBOL_FUNCTION(obj));
 			break;
@@ -194,8 +198,10 @@ ISObject is_make_symbol(ISObject *string)
 	ISSymbol *symbol = (ISSymbol*)alloc(sizeof(ISSymbol));
 	symbol->forwarding = 0;
 	symbol->type = IS_SYMBOL_TYPE;
-	symbol->name = *string;
-	symbol->value = (ISObject) NULL;
+	symbol->name = (string == NULL ? (ISObject)NULL : *string);
+	symbol->global = (ISObject) NULL;
+	symbol->dynamic = (ISObject) NULL;
+	symbol->property = is_nil;
 	symbol->function = (ISObject) NULL;
 	return (ISObject) symbol;
 }

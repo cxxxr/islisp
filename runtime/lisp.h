@@ -47,6 +47,7 @@ enum ISType {
 #define IS_CONS_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_CONS_TYPE)
 
 #define is_make_integer(v) ((ISObject)(((v) << 3) | IS_INTEGER_TAG))
+#define is_make_character(c) (((ISObject)((c) << 3)) | IS_CHARACTER_TAG)
 
 #define IS_OBJECT_HEADER \
 	uint8_t type; \
@@ -78,12 +79,16 @@ typedef struct {
 typedef struct {
 	IS_OBJECT_HEADER;
 	ISObject name;
-	ISObject value;
+	ISObject global;
+	ISObject dynamic;
+	ISObject property;
 	ISObject function;
 } ISSymbol;
 
 #define IS_SYMBOL_NAME(obj) (((ISSymbol*)obj)->name)
-#define IS_SYMBOL_VALUE(obj) (((ISSymbol*)obj)->value)
+#define IS_SYMBOL_GLOBAL(obj) (((ISSymbol*)obj)->global)
+#define IS_SYMBOL_DYNAMIC(obj) (((ISSymbol*)obj)->dynamic)
+#define IS_SYMBOL_PROPERTY(obj) (((ISSymbol*)obj)->property)
 #define IS_SYMBOL_FUNCTION(obj) (((ISSymbol*)obj)->function)
 
 typedef struct {
@@ -137,16 +142,20 @@ extern ISObject is_symbol_nil;
 #define is_nil is_symbol_nil
 
 // error.c
-void is_error(const char *);
+void is_error(const char *, ...);
 void is_argc_error(void);
 void is_stackoverflow(void);
 void is_type_error(ISObject, enum ISType);
 void is_undefined_function(ISObject);
+void is_unbound_variable(ISObject);
 
 // symbol.c
 ISObject is_intern(ISObject *);
 ISObject is_bool_to_object(bool);
 void is_symbol_set_function(ISObject, ISObject);
+ISObject is_symbol_global(ISObject);
+void is_symbol_set_global(ISObject, ISObject);
+ISObject is_gensym(void);
 void is_add_builtin_function(const char *, ISFuncPtr, int, int);
 void is_symbol_init(void);
 

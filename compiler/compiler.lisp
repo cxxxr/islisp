@@ -857,10 +857,10 @@
        (cc-format 1 "is_stack_push(is_function(~A));" v)))
     ((GREF)
      (let ((v (cc-add-const ctx (instr-arg1 instr))))
-       (cc-format 1 "is_stack_push(is_symbol_value(~A));" v)))
+       (cc-format 1 "is_stack_push(is_symbol_global(~A));" v)))
     ((GSET)
      (let ((v (cc-add-const ctx (instr-arg1 instr))))
-       (cc-format 1 "is_setq(~A, is_stack_peek(1));" v)))
+       (cc-format 1 "is_symbol_set_global(~A, is_stack_peek(1));" v)))
     ((CALL)
      (cc-format 1 "is_call(~A, ~A);"
                 (cc-add-const ctx (instr-arg1 instr))
