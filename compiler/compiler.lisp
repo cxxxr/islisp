@@ -538,7 +538,8 @@
     (let ((body-code (codegen ctx body (append env1 env))))
       (let ((peek-offset (length bindings))
             (stack-push-count 0))
-        (genseq (mapcan (lambda (b)
+        (genseq (gen 'BLOCK-START)
+                (mapcan (lambda (b)
                           (codegen ctx (cadr b) env))
                         bindings)
                 (codegen-extend-env env1)
@@ -550,7 +551,8 @@
                                  (gen 'LOCAL-VAR (cdr e) (+ 1 (decf peek-offset))))))
                         env1)
                 body-code
-                (gen 'NIP stack-push-count))))))
+                (gen 'NIP stack-push-count)
+                (gen 'BLOCK-END))))))
 
 (defun codegen-lambda-list (vars env1 num-args)
   (let ((peek-offset num-args)
@@ -614,11 +616,13 @@
                          'code (genseq (gen 'ARGS min max
                                             (mapcar (lambda (opt) (codegen ctx (second opt) nil))
                                                     (second lambda-list)))
+                                       (gen 'BLOCK-START)
                                        extend-env-code
                                        lambda-list-code
                                        load-env-code
                                        body-code
                                        (when (/= 0 num-args) (gen 'NIP num-args))
+                                       (gen 'BLOCK-END)
                                        (gen 'RETURN)))))
             (codegen-add-function ctx function)
             (setf (context-heap-vars ctx) prev-heap-vars)
@@ -763,7 +767,7 @@
   (cc-format 0 "static void toplevel(void)~%{")
   (cc-code ctx code)
   (cc-format 0 "}")
-  (cc-format 0 "static void loader(void)~%{")
+  (cc-format 0 "void loader(void)~%{")
   (cc-format 1 "is_gc_disable();")
   (dolist (c (context-constant-list ctx))
     (let ((var (cdr c))
@@ -908,7 +912,7 @@
                        (cc-format 3 "is_stack_push(nil);")
                        (cc-format 3 "break;")
                        (cc-format 2 "default:")
-                       (cc-format 3 "is_stack_build_list(argc-~A);" (+ min (length optional-vars))))
+                       (cc-format 3 "is_stack_build_list(argc-~A);" (+ min (length default-code-list))))
                       (t
                        (cc-format 2 "case ~A:" i)
                        (cc-format 3 "break;")
@@ -952,6 +956,12 @@
      (cc-tagbody-end ctx instr))
     ((LONG-JUMP)
      (cc-longjmp ctx instr))
+    ((BLOCK-START)
+     (cc-format 1 "{")
+     (incf (dynamic *cc-indent-offset*)))
+    ((BLOCK-END)
+     (decf (dynamic *cc-indent-offset*))
+     (cc-format 1 "}"))
     ((RETURN)
      (cc-format 1 "return;"))
     (t
