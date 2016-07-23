@@ -108,7 +108,9 @@
     gsym))
 
 (defun pass1 (x)
-  (cond ((symbolp x)
+  (cond ((member x '(t nil))
+         (make-ast 'CONST x))
+        ((symbolp x)
          (pass1-refvar x))
         ((not (consp x))
          (make-ast 'CONST x))
