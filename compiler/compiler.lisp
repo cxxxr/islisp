@@ -264,9 +264,13 @@
                  (make-ast 'TAGBODY
                            gtags
                            (mapcar (lambda (form)
-                                     (if (symbolp form)
-                                         (pass1-env-get env1 form)
-                                       (pass1 form)))
+                                     (cond ((symbolp form)
+                                            (if (property form 'tag-used-p)
+                                                (syntax-error "duplicated tag: ~A in ~A" form x)
+                                                (set-property t form 'tag-used-p))
+                                            (pass1-env-get env1 form))
+                                           (t
+                                            (pass1 form))))
                                    (cdr x))))))
 
 (defun pass1-go (x)
