@@ -49,6 +49,11 @@ ISObject is_bool_to_object(bool b)
 	return b ? is_symbol_t : is_symbol_nil;
 }
 
+ISObject is_symbol_function(ISObject obj)
+{
+	return IS_SYMBOL_FUNCTION(obj);
+}
+
 void is_symbol_set_function(ISObject symbol, ISObject function)
 {
 	IS_SYMBOL_FUNCTION(symbol) = function;

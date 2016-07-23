@@ -736,8 +736,8 @@
     (when (equal value (car elt))
       (return (cdr elt)))))
 
-(defun cc-top (ctx)
-  (let* ((body-str (cc-body ctx))
+(defun cc-top (ctx code)
+  (let* ((body-str (cc-body ctx code))
          (head-str (cc-head ctx)))
     (string-append head-str body-str)))
 
@@ -752,14 +752,17 @@
       (cc-format 0 "static void ~A(int);" (is-function-label f)))
     (get-output-stream-string (dynamic *cc-stream*))))
 
-(defun cc-body (ctx)
+(defun cc-body (ctx code)
   (dynamic-let ((*cc-stream* (create-string-output-stream)))
     (dolist (f (context-functions ctx))
       (cc-function ctx f))
-    (cc-loader ctx)
+    (cc-loader ctx code)
     (get-output-stream-string (dynamic *cc-stream*))))
 
-(defun cc-loader (ctx)
+(defun cc-loader (ctx code)
+  (cc-format 0 "static void toplevel(void)~%{")
+  (cc-code ctx code)
+  (cc-format 0 "}")
   (cc-format 0 "static void loader(void)~%{")
   (cc-format 1 "is_gc_disable();")
   (dolist (c (context-constant-list ctx))
@@ -776,6 +779,7 @@
   (dolist (c (context-constant-list ctx))
     (cc-format 1 "is_shelter_add(&~A);" (cdr c)))
   (cc-format 1 "is_gc_enable();")
+  (cc-format 1 "toplevel();")
   (cc-format 0 "}"))
 
 (defun cc-loader-const (ctx var value)
@@ -826,11 +830,14 @@
 (defun cc-function (ctx function)
   (cc-add-const ctx (is-function-name function))
   (cc-format 0 "static void ~A(int argc)~%{" (is-function-label function))
-  (dolist (instr (is-function-code function))
-    (cc-instr ctx function instr))
+  (cc-code ctx (is-function-code function))
   (cc-format 0 "}"))
 
-(defun cc-tagbody-start (ctx function instr)
+(defun cc-code (ctx code)
+  (dolist (instr code)
+    (cc-instr ctx instr)))
+
+(defun cc-tagbody-start (ctx instr)
   (cc-format 1 "{")
   (let ((tags (instr-arg1 instr))
         (tag-array-var (gen-uniq ctx "tag_array_"))
@@ -849,23 +856,23 @@
       (cc-format 2 "if (~A != 0) goto *~A[~A-1];" tmp-var tag-array-var tmp-var))
     (incf (dynamic *cc-indent-offset*))))
 
-(defun cc-tagbody-end (ctx function instr)
+(defun cc-tagbody-end (ctx instr)
   (decf (dynamic *cc-indent-offset*))
   (cc-format 1 "}"))
 
-(defun cc-longjmp (ctx function instr)
+(defun cc-longjmp (ctx instr)
   (cc-format 1 "longjmp(~A, ~A);"
              (property (instr-arg1 instr) 'jmpbuf)
              (property (instr-arg1 instr) 'go-number)))
 
-(defun cc-instr (ctx function instr)
+(defun cc-instr (ctx instr)
   (case (instr-op instr)
     ((CONST)
      (let ((v (cc-add-const ctx (instr-arg1 instr))))
        (cc-format 1 "is_stack_push(~A);" v)))
     ((FUNCTION)
      (let ((v (cc-add-const ctx (instr-arg1 instr))))
-       (cc-format 1 "is_stack_push(is_function(~A));" v)))
+       (cc-format 1 "is_stack_push(is_symbol_function(~A));" v)))
     ((GREF)
      (let ((v (cc-add-const ctx (instr-arg1 instr))))
        (cc-format 1 "is_stack_push(is_symbol_global(~A));" v)))
@@ -895,8 +902,7 @@
                   (cc-format 2 "case ~A:" i)
                   (dynamic-let ((*cc-indent-offset*
                                  (+ 2 (dynamic *cc-indent-offset*))))
-                               (dolist (instr code)
-                                 (cc-instr ctx function instr)))
+                               (cc-code ctx code))
                   (incf i))
                 (cond ((null max)
                        (cc-format 3 "is_stack_push(nil);")
@@ -941,11 +947,11 @@
     ((LABEL)
      (cc-format 0 "~A:;" (instr-arg1 instr)))
     ((TAGBODY-START)
-     (cc-tagbody-start ctx function instr))
+     (cc-tagbody-start ctx instr))
     ((TAGBODY-END)
-     (cc-tagbody-end ctx function instr))
+     (cc-tagbody-end ctx instr))
     ((LONG-JUMP)
-     (cc-longjmp ctx function instr))
+     (cc-longjmp ctx instr))
     ((RETURN)
      (cc-format 1 "return;"))
     (t
@@ -953,7 +959,8 @@
 
 
 
-(defglobal *output-file* "OUTPUT.C")
+(defglobal *output-file* "../runtime/OUTPUT.C")
+;(defglobal *output-file* nil)
 
 (defun is-compile-file (&rest filenames)
   (let ((ctx (create (class context)))
@@ -964,11 +971,12 @@
                                  ((null x))
                                  (setq code
                                        (genseq code
-                                               (codegen ctx (pass1 x) nil))))))
+                                               (codegen ctx (pass1 x) nil)
+                                               (gen 'POP))))))
     (if (null *output-file*)
-        (format (standard-output) "~A~%" (cc-top ctx))
+        (format (standard-output) "~A~%" (cc-top ctx code))
       (with-open-output-file (out *output-file*)
-                             (format out "~A~%" (cc-top ctx))))
+                             (format out "~A~%" (cc-top ctx code))))
     t))
 
 (defun is-compile (x)
@@ -976,5 +984,11 @@
          (code (codegen ctx (pass1 x) nil)))
     (print-code code)
     (print-context ctx)
-    (format (standard-output) "~A" (cc-top ctx))
+    (format (standard-output) "~A" (cc-top ctx code))
     t))
+
+(defun make ()
+  (is-compile-file "../lisp/control.lsp"
+                   "../lisp/read.lsp"))
+
+(make)

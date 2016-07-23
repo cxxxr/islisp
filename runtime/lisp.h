@@ -170,6 +170,7 @@ void is_not_an_input_stream(void);
 // symbol.c
 ISObject is_intern(ISObject *);
 ISObject is_bool_to_object(bool);
+ISObject is_symbol_function(ISObject);
 void is_symbol_set_function(ISObject, ISObject);
 ISObject is_symbol_global(ISObject);
 void is_symbol_set_global(ISObject, ISObject);
