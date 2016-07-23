@@ -192,11 +192,11 @@
                  (setq optional-p t))
                 (optional-p
                  (cond ((symbolp x)
-                        (push (list x nil) optional-vars))
+                        (push (list x (make-ast 'const nil)) optional-vars))
                        ((not (and (consp x) (= (length x) 2)))
                         (go :ERROR))
                        (t
-                        (push (list (car x) (cadr x)) optional-vars))))
+                        (push (list (car x) (pass1 (cadr x))) optional-vars))))
                 ((not (symbolp x))
                  (go :ERROR))
                 (t
@@ -609,7 +609,9 @@
                  (create (class is-function)
                          'lambda-list lambda-list
                          'label (gen-uniq ctx "F")
-                         'code (genseq (gen 'ARGS min max)
+                         'code (genseq (gen 'ARGS min max
+                                            (mapcar (lambda (opt) (codegen ctx (second opt) nil))
+                                                    (second lambda-list)))
                                        extend-env-code
                                        lambda-list-code
                                        load-env-code
@@ -702,6 +704,9 @@
 
 (defun instr-arg2 (instr)
   (third instr))
+
+(defun instr-arg3 (instr)
+  (fourth instr))
 
 (defdynamic *cc-stream* nil)
 (defdynamic *cc-indent-offset* 0)
@@ -872,10 +877,11 @@
     ((ARGS)
      (let ((min (instr-arg1 instr))
            (max (instr-arg2 instr))
-           (optional-vars (second (is-function-lambda-list function))))
+           (default-code-list (instr-arg3 instr))
+           )
        (cond ((eql min max)
               (cc-format 1 "if (argc != ~A) is_argc_error();" min))
-             ((null optional-vars)
+             ((null max)
               (cc-format 1 "if (argc < ~A) is_argc_error();" min)
               (cc-format 1 "is_stack_build_list(argc-~A);" min))
              (t
@@ -883,9 +889,12 @@
               (dotimes (i min)
                 (cc-format 2 "case ~A:" i))
               (let ((i min))
-                (dolist (v optional-vars)
+                (dolist (code default-code-list)
                   (cc-format 2 "case ~A:" i)
-                  (cc-format 3 "is_stack_push(~A);" (cc-add-const ctx (cadr v)))
+                  (dynamic-let ((*cc-indent-offset*
+                                 (+ 2 (dynamic *cc-indent-offset*))))
+                               (dolist (instr code)
+                                 (cc-instr ctx function instr)))
                   (incf i))
                 (cond ((null max)
                        (cc-format 3 "is_stack_push(nil);")
