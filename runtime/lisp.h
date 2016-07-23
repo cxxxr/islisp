@@ -28,6 +28,11 @@ enum ISType {
 	IS_BUILTIN_FUNCTION_TYPE,
 	IS_CLOSURE_TYPE,
 	IS_FUNCTION_TYPE,
+	IS_STREAM_TYPE,
+	IS_INPUT_STREAM_TYPE,
+	IS_OUTPUT_STREAM_TYPE,
+	IS_INPUT_STRING_STREAM_TYPE,
+	IS_OUTPUT_STRING_STREAM_TYPE,
 };
 
 #define IS_OBJECT_MASK 0x7
@@ -45,6 +50,8 @@ enum ISType {
 
 #define IS_FLOAT_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_FLOAT_TYPE)
 #define IS_CONS_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_CONS_TYPE)
+#define IS_INPUT_STREAM_P(obj) (IS_POINTER_P(obj) && (IS_HEAP_OBJECT_TYPE(obj) == IS_INPUT_STREAM_TYPE || IS_HEAP_OBJECT_TYPE(obj) == IS_INPUT_STRING_STREAM_TYPE))
+#define IS_OUTPUT_STREAM_P(obj) (IS_POINTER_P(obj) && (IS_HEAP_OBJECT_TYPE(obj) == IS_OUTPUT_STREAM_TYPE || IS_HEAP_OBJECT_TYPE(obj) == IS_OUTPUT_STRING_STREAM_TYPE))
 
 #define is_make_integer(v) ((ISObject)(((v) << 3) | IS_INTEGER_TAG))
 #define is_make_character(c) (((ISObject)((c) << 3)) | IS_CHARACTER_TAG)
@@ -129,6 +136,15 @@ typedef struct {
 #define IS_CLOSURE_ENV(obj) (((ISClosure*)obj)->env)
 #define IS_CLOSURE_PTR(obj) (((ISClosure*)obj)->ptr)
 
+typedef struct {
+	IS_OBJECT_HEADER;
+	union {
+		FILE *ptr;
+	};
+} ISStream;
+
+#define IS_STREAM_PTR(obj) (((ISStream*)obj)->ptr)
+
 extern ISObject **is_shelter;
 extern int is_shelter_used;
 extern int is_shelter_size;
@@ -138,6 +154,7 @@ extern int is_symbol_table_size;
 
 extern ISObject is_current_env;
 
+extern ISObject is_symbol_t;
 extern ISObject is_symbol_nil;
 #define is_nil is_symbol_nil
 
@@ -148,6 +165,7 @@ void is_stackoverflow(void);
 void is_type_error(ISObject, enum ISType);
 void is_undefined_function(ISObject);
 void is_unbound_variable(ISObject);
+void is_not_an_input_stream(void);
 
 // symbol.c
 ISObject is_intern(ISObject *);
@@ -158,6 +176,14 @@ void is_symbol_set_global(ISObject, ISObject);
 ISObject is_gensym(void);
 void is_add_builtin_function(const char *, ISFuncPtr, int, int);
 void is_symbol_init(void);
+
+// stream.c
+void is_read_char(ISObject, ISObject, ISObject);
+void is_read_char_f(int);
+void is_standard_output_f(int);
+void is_standard_input_f(int);
+void is_error_output_f(int);
+void is_stream_init(void);
 
 // number.c
 void is_add_2f(void);
@@ -199,6 +225,8 @@ ISObject is_make_string(const char *);
 ISObject is_make_user_function(ISFuncPtr);
 ISObject is_make_builtin_function(ISFuncPtr, const char *, int, int);
 ISObject is_make_closure(ISFuncPtr);
+ISObject is_make_input_stream(FILE *);
+ISObject is_make_output_stream(FILE *);
 
 // env.c
 void is_env_init(void);

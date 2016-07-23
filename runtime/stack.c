@@ -31,8 +31,10 @@ ISObject is_stack_peek(int offset)
 
 void is_stack_nip(int n)
 {
-	*(is_stack_top - n - 1) = *(is_stack_top - 1);
-	is_stack_top -= n;
+	if (n > 0) {
+		*(is_stack_top - n - 1) = *(is_stack_top - 1);
+		is_stack_top -= n;
+	}
 }
 
 bool is_stack_top_null(void)

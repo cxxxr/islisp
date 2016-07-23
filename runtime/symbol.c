@@ -3,7 +3,7 @@
 ISObject *is_symbol_table;
 int is_symbol_table_size;
 
-static ISObject is_symbol_t;
+ISObject is_symbol_t;
 ISObject is_symbol_nil;
 
 static int hashval(const char *str)

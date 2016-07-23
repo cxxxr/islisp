@@ -16,6 +16,7 @@ void is_error(const char *msg, ...)
 
 	puts("");
 	va_end(ap);
+
 	abort();
 }
 
@@ -29,9 +30,42 @@ void is_stackoverflow(void)
 	is_error("stack over flow");
 }
 
-void is_type_error(ISObject IS_UNUSED(obj), enum ISType IS_UNUSED(type))
+void is_type_error(ISObject obj, enum ISType type)
 {
-	is_error("type error");
+	switch (type) {
+		case IS_NUMBER_TYPE:
+			is_error("not number: %", obj);
+			break;
+		case IS_FLOAT_TYPE:
+			is_error("not float: %", obj);
+			break;
+		case IS_CONS_TYPE:
+			is_error("not cons: %", obj);
+			break;
+		case IS_SYMBOL_TYPE:
+			is_error("not symbol: %", obj);
+			break;
+		case IS_STRING_TYPE:
+			is_error("not string: %", obj);
+			break;
+		case IS_USER_FUNCTION_TYPE:
+		case IS_BUILTIN_FUNCTION_TYPE:
+		case IS_CLOSURE_TYPE:
+		case IS_FUNCTION_TYPE:
+			is_error("not function: %", obj);
+			break;
+		case IS_STREAM_TYPE:
+			is_error("not stream: %", obj);
+			break;
+		case IS_INPUT_STREAM_TYPE:
+		case IS_INPUT_STRING_STREAM_TYPE:
+			is_error("not input stream: %", obj);
+			break;
+		case IS_OUTPUT_STREAM_TYPE:
+		case IS_OUTPUT_STRING_STREAM_TYPE:
+			is_error("not output stream: %", obj);
+			break;
+	}
 }
 
 void is_undefined_function(ISObject symbol)
@@ -42,4 +76,9 @@ void is_undefined_function(ISObject symbol)
 void is_unbound_variable(ISObject symbol)
 {
 	is_error("unbound variable: %", symbol);
+}
+
+void is_not_an_input_stream(void)
+{
+	is_error("not an input stream");
 }

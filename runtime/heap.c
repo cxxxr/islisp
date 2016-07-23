@@ -248,6 +248,24 @@ ISObject is_make_closure(ISFuncPtr ptr)
 	return (ISObject) func;
 }
 
+ISObject is_make_input_stream(FILE *ptr)
+{
+	ISStream *stream = (ISStream*)alloc(sizeof(ISStream));
+	stream->forwarding = 0;
+	stream->type = IS_INPUT_STREAM_TYPE;
+	stream->ptr = ptr;
+	return (ISObject) stream;
+}
+
+ISObject is_make_output_stream(FILE *ptr)
+{
+	ISStream *stream = (ISStream*)alloc(sizeof(ISStream));
+	stream->forwarding = 0;
+	stream->type = IS_OUTPUT_STREAM_TYPE;
+	stream->ptr = ptr;
+	return (ISObject) stream;
+}
+
 
 
 void is_heap_init(void)

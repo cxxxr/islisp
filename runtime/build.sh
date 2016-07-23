@@ -11,4 +11,5 @@ main.c \
 number.c \
 print.c \
 stack.c \
-symbol.c
+symbol.c \
+stream.c
