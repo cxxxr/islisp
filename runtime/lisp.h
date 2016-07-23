@@ -19,6 +19,7 @@ typedef uintptr_t ISObject;
 typedef void (*ISFuncPtr) (int);
 
 enum ISType {
+	IS_INTEGER_TYPE,
 	IS_NUMBER_TYPE,
 	IS_FLOAT_TYPE,
 	IS_CONS_TYPE,
@@ -53,6 +54,7 @@ enum ISType {
 #define IS_CONS_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_CONS_TYPE)
 #define IS_INPUT_STREAM_P(obj) (IS_POINTER_P(obj) && (IS_HEAP_OBJECT_TYPE(obj) == IS_INPUT_STREAM_TYPE || IS_HEAP_OBJECT_TYPE(obj) == IS_INPUT_STRING_STREAM_TYPE))
 #define IS_OUTPUT_STREAM_P(obj) (IS_POINTER_P(obj) && (IS_HEAP_OBJECT_TYPE(obj) == IS_OUTPUT_STREAM_TYPE || IS_HEAP_OBJECT_TYPE(obj) == IS_OUTPUT_STRING_STREAM_TYPE))
+#define IS_VECTOR_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_VECTOR_TYPE)
 
 #define is_make_integer(v) ((ISObject)(((v) << 3) | IS_INTEGER_TAG))
 #define is_make_character(c) (((ISObject)((c) << 3)) | IS_CHARACTER_TAG)
@@ -176,6 +178,7 @@ void is_type_error(ISObject, enum ISType);
 void is_undefined_function(ISObject);
 void is_unbound_variable(ISObject);
 void is_not_an_input_stream(void);
+void is_index_out_of_range(ISObject, ISObject);
 
 // symbol.c
 ISObject is_intern(ISObject *);

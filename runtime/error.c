@@ -33,6 +33,9 @@ void is_stackoverflow(void)
 void is_type_error(ISObject obj, enum ISType type)
 {
 	switch (type) {
+		case IS_INTEGER_TYPE:
+			is_error("not integer %", obj);
+			break;
 		case IS_NUMBER_TYPE:
 			is_error("not number: %", obj);
 			break;
@@ -81,4 +84,9 @@ void is_unbound_variable(ISObject symbol)
 void is_not_an_input_stream(void)
 {
 	is_error("not an input stream");
+}
+
+void is_index_out_of_range(ISObject vec, ISObject index)
+{
+	is_error("index out of range: % %", vec, index);
 }
