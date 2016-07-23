@@ -12,4 +12,5 @@ number.c \
 print.c \
 stack.c \
 symbol.c \
-stream.c
+stream.c \
+vector.c

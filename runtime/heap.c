@@ -57,6 +57,13 @@ static size_t obj_size(ISObject obj)
 			return sizeof(ISBuiltinFunction);
 		case IS_CLOSURE_TYPE:
 			return sizeof(ISClosure);
+		case IS_INPUT_STREAM_TYPE:
+		case IS_OUTPUT_STREAM_TYPE:
+		case IS_INPUT_STRING_STREAM_TYPE:
+		case IS_OUTPUT_STRING_STREAM_TYPE:
+			return sizeof(ISStream);
+		case IS_VECTOR_TYPE:
+			return sizeof(ISVector) + sizeof(ISObject) * IS_VECTOR_LENGTH(obj);
 		default:
 			printf("unknwon type: %d\n", IS_HEAP_OBJECT_TYPE(obj));
 			exit(EXIT_FAILURE);
@@ -111,6 +118,14 @@ static void copy_obj_children(ISObject obj)
 		case IS_CLOSURE_TYPE:
 			IS_CLOSURE_ENV(obj) = copy(IS_CLOSURE_ENV(obj));
 			break;
+		case IS_VECTOR_TYPE:
+		{
+			ISVector *vec = (ISVector*)(obj);
+			for (int i = 0; i < vec->len; i++) {
+				vec->data[i] = copy(vec->data[i]);
+			}
+			break;
+		}
 	}
 }
 
@@ -136,6 +151,8 @@ static void copy_gc(void)
 	}
 
 	is_current_env = copy(is_current_env);
+	is_symbol_t = copy(is_symbol_t);
+	is_symbol_nil = copy(is_symbol_nil);
 
 	while (scan < free_space) {
 		copy_obj_children((ISObject)scan);
@@ -264,6 +281,16 @@ ISObject is_make_output_stream(FILE *ptr)
 	stream->type = IS_OUTPUT_STREAM_TYPE;
 	stream->ptr = ptr;
 	return (ISObject) stream;
+}
+
+ISObject is_make_vector(int len, ISObject *v)
+{
+	ISVector *vector = (ISVector*)alloc(sizeof(ISVector) + sizeof(ISObject) * len);
+	vector->forwarding = 0;
+	vector->type = IS_VECTOR_TYPE;
+	vector->len = len;
+	for (int i = 0; i < len; i++) vector->data[i] = *v;
+	return (ISObject) vector;
 }
 
 

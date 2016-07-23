@@ -33,6 +33,7 @@ enum ISType {
 	IS_OUTPUT_STREAM_TYPE,
 	IS_INPUT_STRING_STREAM_TYPE,
 	IS_OUTPUT_STRING_STREAM_TYPE,
+	IS_VECTOR_TYPE,
 };
 
 #define IS_OBJECT_MASK 0x7
@@ -145,6 +146,15 @@ typedef struct {
 
 #define IS_STREAM_PTR(obj) (((ISStream*)obj)->ptr)
 
+typedef struct {
+	IS_OBJECT_HEADER;
+	int len;
+	ISObject data[1];
+} ISVector;
+
+#define IS_VECTOR_LENGTH(obj) (((ISVector*)obj)->len)
+#define IS_VECTOR_DATA(obj) (((ISVector*)obj)->data)
+
 extern ISObject **is_shelter;
 extern int is_shelter_used;
 extern int is_shelter_size;
@@ -207,6 +217,11 @@ void is_car_f(int);
 void is_cdr_f(int);
 void is_cons_init(void);
 
+// vector.c
+void is_create_vector_2f(void);
+void is_create_vector_f(int);
+void is_vector_init(void);
+
 // shelter.c
 int is_shelter_add(ISObject *);
 void is_shelter_set_index(int);
@@ -228,6 +243,7 @@ ISObject is_make_builtin_function(ISFuncPtr, const char *, int, int);
 ISObject is_make_closure(ISFuncPtr);
 ISObject is_make_input_stream(FILE *);
 ISObject is_make_output_stream(FILE *);
+ISObject is_make_vector(int, ISObject *);
 
 // env.c
 void is_env_init(void);
