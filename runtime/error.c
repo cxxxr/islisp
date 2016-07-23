@@ -68,6 +68,9 @@ void is_type_error(ISObject obj, enum ISType type)
 		case IS_OUTPUT_STRING_STREAM_TYPE:
 			is_error("not output stream: %", obj);
 			break;
+		case IS_VECTOR_TYPE:
+			is_error("not vector: %", obj);
+			break;
 	}
 }
 
