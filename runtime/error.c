@@ -17,6 +17,8 @@ void is_error(const char *msg, ...)
 	puts("");
 	va_end(ap);
 
+	is_call_stack_print();
+
 	abort();
 }
 

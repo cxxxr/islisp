@@ -295,6 +295,7 @@ void is_env_extend(int, ...);
 ISObject *is_env_get(int i);
 
 // call.c
+void is_call_stack_print(void);
 void is_call(ISObject, int);
 void is_funcall_f(int);
 void is_call_init(void);
