@@ -65,9 +65,9 @@ void is_nreverse_f(int IS_UNUSED(argc))
 	ISObject tail = list;
 	ISObject next;
 
-	while (tail == is_nil) {
+	while (tail != is_nil) {
 		next = IS_CONS_CDR(tail);
-		is_set_cdr(tail, prev);
+		is_set_cdr(prev, tail);
 		prev = tail;
 		tail = next;
 	}

@@ -12,7 +12,7 @@ void name(int IS_UNUSED(argc)) \
 	ISObject y = is_stack_peek(1); \
 	if (!IS_CHARACTER_P(x)) is_type_error(x, IS_CHARACTER_TYPE); \
 	if (!IS_CHARACTER_P(y)) is_type_error(y, IS_CHARACTER_TYPE); \
-	is_stack_change_tos(is_bool_to_object(IS_CHARACTER(x) op IS_CHARACTER(y))); \
+	is_stack_drop_push(2, is_bool_to_object(IS_CHARACTER(x) op IS_CHARACTER(y))); \
 }
 
 DEF_CMP_F(is_char_eq_f, ==);

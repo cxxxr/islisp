@@ -18,7 +18,7 @@ void is_create_string_f(int argc)
 	if (!IS_INTEGER_P(len))
 		is_type_error(len, IS_INTEGER_TYPE);
 
-	is_stack_drop_push(2, is_make_string_fill(IS_INTEGER(len), c));
+	is_stack_drop_push(argc, is_make_string_fill(IS_INTEGER(len), c));
 }
 
 void is_string_init(void)

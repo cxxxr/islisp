@@ -49,6 +49,7 @@ void is_vector_set_f(int IS_UNUSED(argc))
 
 	// write_barrior
 	IS_VECTOR_DATA(*vec)[i] = *val;
+	is_stack_drop_push(3, is_nil);
 }
 
 void is_vector_init(void)
