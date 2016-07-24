@@ -50,7 +50,7 @@ static size_t obj_size(ISObject obj)
 		case IS_SYMBOL_TYPE:
 			return sizeof(ISSymbol);
 		case IS_STRING_TYPE:
-			return sizeof(ISString) + sizeof(char) * (IS_STRING_LENGTH(obj) + 1);
+			return sizeof(ISString) + sizeof(char) * (IS_STRING_LENGTH(obj));
 		case IS_USER_FUNCTION_TYPE:
 			return sizeof(ISUserFunction);
 		case IS_BUILTIN_FUNCTION_TYPE:
@@ -146,7 +146,7 @@ static void copy_gc(void)
 		*is_shelter[i] = copy(*is_shelter[i]);
 	}
 
-	for (ISObject *p = is_stack_top; p >= is_stack_low; p--) {
+	for (ISObject *p = is_stack_top - 1; p >= is_stack_low; p--) {
 		*p = copy(*p);
 	}
 
@@ -226,7 +226,7 @@ ISObject is_make_symbol(ISObject *string)
 ISObject is_make_string(const char *data)
 {
 	int len = strlen(data);
-	ISString *string = (ISString*)alloc(sizeof(ISString) + sizeof(char) * (len + 1));
+	ISString *string = (ISString*)alloc(sizeof(ISString) + sizeof(char) * len);
 	string->forwarding = 0;
 	string->type = IS_STRING_TYPE;
 	string->len = len;
