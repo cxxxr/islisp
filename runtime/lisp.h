@@ -214,6 +214,7 @@ ISObject is_symbol_global(ISObject);
 void is_symbol_set_global(ISObject, ISObject);
 ISObject is_gensym(void);
 void is_add_builtin_function(const char *, ISFuncPtr, int, int);
+void is_eql_f(int);
 void is_symbol_init(void);
 
 // stream.c

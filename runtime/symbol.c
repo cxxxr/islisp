@@ -86,6 +86,11 @@ void is_add_builtin_function(const char *name, ISFuncPtr ptr, int min, int max)
 							max));
 }
 
+void is_eql_f(int IS_UNUSED(argc))
+{
+	is_stack_drop_push(2, is_bool_to_object(is_stack_peek(1) == is_stack_peek(2)));
+}
+
 void is_symbol_init(void)
 {
 	init_symbol_table();
@@ -98,4 +103,7 @@ void is_symbol_init(void)
 
 	is_shelter_add(&is_symbol_nil);
 	is_shelter_add(&is_symbol_t);
+
+	is_add_builtin_function("EQ", is_eql_f, 2, 2);
+	is_add_builtin_function("EQL", is_eql_f, 2, 2);
 }
