@@ -150,10 +150,6 @@ static void copy_gc(void)
 		*p = copy(*p);
 	}
 
-	is_current_env = copy(is_current_env);
-	is_symbol_t = copy(is_symbol_t);
-	is_symbol_nil = copy(is_symbol_nil);
-
 	while (scan < free_space) {
 		copy_obj_children((ISObject)scan);
 		size_t bytes = alignment(obj_size((ISObject)scan));

@@ -5,6 +5,7 @@ ISObject is_current_env;
 void is_env_init(void)
 {
 	is_current_env = is_nil;
+	is_shelter_add(&is_current_env);
 }
 
 void is_env_extend(int n, ...)

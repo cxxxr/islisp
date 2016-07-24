@@ -95,4 +95,7 @@ void is_symbol_init(void)
 
 	ISObject t_string = is_make_string("T");
 	is_symbol_t = is_intern(&t_string);
+
+	is_shelter_add(&is_symbol_nil);
+	is_shelter_add(&is_symbol_t);
 }

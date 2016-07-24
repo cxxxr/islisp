@@ -79,4 +79,8 @@ void is_stream_init(void)
 	is_add_builtin_function("READ-CHAR", is_read_char_f, 0, 3);
 	is_add_builtin_function("STANDARD-OUTPUT", is_standard_output_f, 0, 0);
 	is_add_builtin_function("STANDARD-INPUT", is_standard_input_f, 0, 0);
+
+	is_shelter_add(&is_standard_input);
+	is_shelter_add(&is_standard_output);
+	is_shelter_add(&is_error_output);
 }
