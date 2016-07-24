@@ -42,6 +42,11 @@ bool is_stack_top_null(void)
 	return *(--is_stack_top) == is_nil;
 }
 
+void is_stack_drop(int n)
+{
+	is_stack_top -= n;
+}
+
 void is_stack_drop_push(int n, ISObject v)
 {
 	is_stack_top -= n;
