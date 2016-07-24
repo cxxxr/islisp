@@ -56,9 +56,17 @@ void is_string_set_f(int IS_UNUSED(argc))
 	is_stack_drop(2);
 }
 
+void is_string_length_f(int IS_UNUSED(argc))
+{
+	ISObject string = is_stack_peek(1);
+	if (!IS_STRING_P(string)) is_type_error(string, IS_STRING_TYPE);
+	is_stack_change_tos(is_make_integer(IS_STRING_LENGTH(string)));
+}
+
 void is_string_init(void)
 {
 	is_add_builtin_function("CREATE-STRING", is_create_string_f, 1, 2);
 	is_add_builtin_function("IS:STRING-REF", is_string_ref_f, 2, 2);
 	is_add_builtin_function("IS:STRING-SET", is_string_set_f, 3, 3);
+	is_add_builtin_function("IS:STRING-LENGTH", is_string_length_f, 1, 1);
 }

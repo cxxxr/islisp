@@ -18,10 +18,10 @@ void is_convert_integer_to_char_f(int IS_UNUSED(argc))
 
 void is_convert_string_to_symbol_f(int IS_UNUSED(argc))
 {
-	ISObject obj = is_stack_peek(1);
-	if (!IS_STRING_P(obj))
-		is_type_error(obj, IS_STRING_TYPE);
-	is_stack_change_tos(IS_SYMBOL_NAME(obj));
+	ISObject *string = is_stack_peek_ptr(1);
+	if (!IS_STRING_P(*string))
+		is_type_error(*string, IS_STRING_TYPE);
+	is_stack_change_tos(is_intern(string));
 }
 
 void is_convert_init(void)

@@ -269,6 +269,9 @@ void is_vector_init(void);
 
 // string.c
 void is_create_string_f(int);
+void is_string_ref_f(int);
+void is_string_set_f(int);
+void is_string_length_f(int);
 void is_string_init(void);
 
 // convert.c
