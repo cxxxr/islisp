@@ -267,6 +267,10 @@ void is_create_vector_2f(void);
 void is_create_vector_f(int);
 void is_vector_init(void);
 
+// string.c
+void is_create_string_f(int);
+void is_string_init(void);
+
 // convert.c
 void is_convert_char_to_integer_f(int);
 void is_convert_integer_to_char_f(int);
@@ -289,6 +293,7 @@ ISObject is_make_float(double);
 ISObject is_make_cons(ISObject *, ISObject *);
 ISObject is_make_symbol(ISObject *);
 ISObject is_make_string(const char *);
+ISObject is_make_string_fill(int, char);
 ISObject is_make_user_function(ISObject *, ISFuncPtr);
 ISObject is_make_builtin_function(ISFuncPtr, const char *, int, int);
 ISObject is_make_closure(ISFuncPtr);

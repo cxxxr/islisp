@@ -234,6 +234,17 @@ ISObject is_make_string(const char *data)
 	return (ISObject) string;
 }
 
+ISObject is_make_string_fill(int len, char c)
+{
+	ISString *string = (ISString*)alloc(sizeof(ISString) + sizeof(char) * len);
+	string->forwarding = 0;
+	string->type = IS_STRING_TYPE;
+	string->len = len;
+	memset(string->data, c, len);
+	string->data[len] = '\0';
+	return (ISObject) string;
+}
+
 ISObject is_make_user_function(ISObject *name, ISFuncPtr ptr)
 {
 	ISUserFunction *func = (ISUserFunction*)alloc(sizeof(ISUserFunction));
