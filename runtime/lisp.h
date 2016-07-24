@@ -250,6 +250,7 @@ void is_vector_init(void);
 
 // convert.c
 void is_convert_char_to_integer_f(int);
+void is_convert_integer_to_char_f(int);
 void is_convert_string_to_symbol_f(int);
 void is_convert_init(void);
 
