@@ -47,8 +47,22 @@ void is_print(ISObject obj, FILE *fp)
 		case IS_CLOSURE_TYPE:
 			fprintf(fp, "#<CLOSURE %p>", IS_CLOSURE_PTR(obj));
 			break;
-		default:
+		case IS_INPUT_STREAM_TYPE:
+			fprintf(fp, "#<INPUT-STREAM %p>", IS_STREAM_PTR(obj));
 			break;
+		case IS_OUTPUT_STREAM_TYPE:
+			fprintf(fp, "#<OUTPUT-STREAM %p>", IS_STREAM_PTR(obj));
+			break;
+		case IS_VECTOR_TYPE:
+			fputs("#(", fp);
+			for (int i = 0; i < IS_VECTOR_LENGTH(obj); i++) {
+				is_print(IS_VECTOR_DATA(obj)[i], fp);
+				fputs(" ", fp);
+			}
+			fputs(")", fp);
+			break;
+		default:
+			abort();
 		}
 	}
 }
