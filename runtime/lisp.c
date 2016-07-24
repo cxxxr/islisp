@@ -1,9 +1,8 @@
 #define _IS_MAIN_
 
 #include "lisp.h"
-#include "OUTPUT.C"
 
-int main(void)
+void is_init(void)
 {
 	is_gc_disable();
 	is_heap_init();
@@ -17,8 +16,4 @@ int main(void)
 	is_shelter_init();
 	is_env_init();
 	is_print_init();
-
-	loader();
-
-	return 0;
 }

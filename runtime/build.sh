@@ -1,16 +1,3 @@
 #!/bin/sh
 
-gcc $* -Wall -Wextra \
-call.c \
-cons.c \
-shelter.c \
-env.c \
-error.c \
-heap.c \
-main.c \
-number.c \
-print.c \
-stack.c \
-symbol.c \
-stream.c \
-vector.c
+gcc -g -Wall -Wextra OUTPUT.o `ls -1 *.c | grep -v OUTPUT.c`

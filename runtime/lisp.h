@@ -264,6 +264,9 @@ void is_println(ISObject obj);
 void is_print_f(int);
 void is_print_init(void);
 
+// lisp.c
+void is_init(void);
+
 #define IS_UNUSED(v) v __attribute__((unused))
 
 #include "stack.h"

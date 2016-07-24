@@ -758,15 +758,26 @@
 
 (defun cc-body (ctx code)
   (dynamic-let ((*cc-stream* (create-string-output-stream)))
-    (dolist (f (context-functions ctx))
-      (cc-function ctx f))
-    (cc-loader ctx code)
-    (get-output-stream-string (dynamic *cc-stream*))))
+               (dolist (f (context-functions ctx))
+                 (cc-function ctx f))
+               (cc-toplevel ctx code)
+               (cc-loader ctx code)
+               (cc-main ctx)
+               (get-output-stream-string (dynamic *cc-stream*))))
 
-(defun cc-loader (ctx code)
+(defun cc-main (ctx)
+  (cc-format 0 "int main(void)~%{")
+  (cc-format 1 "is_init();")
+  (cc-format 1 "loader();")
+  (cc-format 1 "toplevel();")
+  (cc-format 0 "}"))
+
+(defun cc-toplevel (ctx code)
   (cc-format 0 "static void toplevel(void)~%{")
   (cc-code ctx code)
-  (cc-format 0 "}")
+  (cc-format 0 "}"))
+
+(defun cc-loader (ctx code)
   (cc-format 0 "void loader(void)~%{")
   (cc-format 1 "is_gc_disable();")
   (dolist (c (context-constant-list ctx))
@@ -783,7 +794,6 @@
   (dolist (c (context-constant-list ctx))
     (cc-format 1 "is_shelter_add(&~A);" (cdr c)))
   (cc-format 1 "is_gc_enable();")
-  (cc-format 1 "toplevel();")
   (cc-format 0 "}"))
 
 (defun cc-loader-const (ctx var value)
@@ -969,7 +979,7 @@
 
 
 
-(defglobal *output-file* "../runtime/OUTPUT.C")
+(defglobal *output-file* "../runtime/OUTPUT.c")
 ;(defglobal *output-file* nil)
 
 (defun is-compile-file (&rest filenames)
