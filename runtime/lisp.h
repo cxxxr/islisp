@@ -248,6 +248,11 @@ void is_create_vector_2f(void);
 void is_create_vector_f(int);
 void is_vector_init(void);
 
+// convert.c
+void is_convert_char_to_integer_f(int);
+void is_convert_string_to_symbol_f(int);
+void is_convert_init(void);
+
 // shelter.c
 int is_shelter_add(ISObject *);
 void is_shelter_set_index(int);
