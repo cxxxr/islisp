@@ -36,6 +36,9 @@ void is_type_error(ISObject obj, enum ISType type)
 		case IS_INTEGER_TYPE:
 			is_error("not integer %", obj);
 			break;
+		case IS_CHARACTER_TYPE:
+			is_error("not character %", obj);
+			break;
 		case IS_NUMBER_TYPE:
 			is_error("not number: %", obj);
 			break;
