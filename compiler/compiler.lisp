@@ -1009,7 +1009,9 @@
     t))
 
 (defun make ()
-  (is-compile-file "../lisp/control.lsp"
+  (is-compile-file "../lisp/predicate.lsp"
+                   "../lisp/control.lsp"
+                   "../lisp/list.lsp"
                    "../lisp/read.lsp"))
 
 (make)
