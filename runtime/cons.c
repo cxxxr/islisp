@@ -23,9 +23,64 @@ void is_cdr_f(int IS_UNUSED(argc))
 	is_stack_change_tos(IS_CONS_CDR(*obj));
 }
 
+void is_set_car(ISObject obj, ISObject cons)
+{
+	if (!IS_CONS_P(cons))
+		is_type_error(cons, IS_CONS_TYPE);
+	// write barrior
+	IS_CONS_CAR(cons) = obj;
+}
+
+void is_set_cdr(ISObject obj, ISObject cons)
+{
+	if (!IS_CONS_P(cons))
+		is_type_error(cons, IS_CONS_TYPE);
+	// write barrior
+	IS_CONS_CDR(cons) = obj;
+}
+
+void is_set_car_f(int IS_UNUSED(argc))
+{
+	ISObject obj = is_stack_peek(2);
+	ISObject cons = is_stack_peek(1);
+	is_set_car(obj, cons);
+	is_stack_pop();
+}
+
+void is_set_cdr_f(int IS_UNUSED(argc))
+{
+	ISObject obj = is_stack_peek(2);
+	ISObject cons = is_stack_peek(1);
+	is_set_cdr(obj, cons);
+	is_stack_pop();
+}
+
+void is_nreverse_f(int IS_UNUSED(argc))
+{
+	ISObject list = is_stack_peek(1);
+	if (list == is_nil) return;
+	if (!IS_CONS_P(list)) is_type_error(list, IS_LIST_TYPE);
+
+	ISObject prev = is_nil;
+	ISObject tail = list;
+	ISObject next;
+
+	while (tail == is_nil) {
+		next = IS_CONS_CDR(tail);
+		is_set_cdr(tail, prev);
+		prev = tail;
+		tail = next;
+	}
+
+	is_stack_change_tos(prev);
+}
+
 void is_cons_init(void)
 {
 	is_add_builtin_function("CONS", is_cons_f, 2, 2);
 	is_add_builtin_function("CAR", is_car_f, 1, 1);
 	is_add_builtin_function("CDR", is_cdr_f, 1, 1);
+	is_add_builtin_function("SET-CAR", is_set_car_f, 2, 2);
+	is_add_builtin_function("SET-CDR", is_set_cdr_f, 2, 2);
+	is_add_builtin_function("NREVERSE", is_nreverse_f, 1, 1);
 }

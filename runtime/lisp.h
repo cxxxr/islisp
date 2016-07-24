@@ -25,6 +25,7 @@ enum ISType {
 
 	IS_FLOAT_TYPE,
 
+	IS_LIST_TYPE,
 	IS_CONS_TYPE,
 
 	IS_SYMBOL_TYPE,
@@ -254,6 +255,11 @@ void is_number_init(void);
 void is_cons_f(int);
 void is_car_f(int);
 void is_cdr_f(int);
+void is_set_car(ISObject, ISObject);
+void is_set_cdr(ISObject, ISObject);
+void is_set_car_f(int);
+void is_set_cdr_f(int);
+void is_nreverse_f(int);
 void is_cons_init(void);
 
 // vector.c

@@ -47,6 +47,9 @@ void is_type_error(ISObject obj, enum ISType type)
 		case IS_FLOAT_TYPE:
 			is_error("not float: %", obj);
 			break;
+		case IS_LIST_TYPE:
+			is_error("not list: %", obj);
+			break;
 		case IS_CONS_TYPE:
 			is_error("not cons: %", obj);
 			break;
