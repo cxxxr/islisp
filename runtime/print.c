@@ -21,6 +21,8 @@ void is_print(ISObject obj, FILE *fp)
 {
 	if (IS_INTEGER_P(obj)) {
 		fprintf(fp, "%ld", IS_INTEGER(obj));
+	} else if (IS_CHARACTER_P(obj)) {
+		fprintf(fp, "#\\%c", IS_CHARACTER(obj));
 	} else {
 		switch (IS_HEAP_OBJECT_TYPE(obj)) {
 		case IS_FLOAT_TYPE:
@@ -37,8 +39,8 @@ void is_print(ISObject obj, FILE *fp)
 			fprintf(fp, "\"%s\"", IS_STRING_DATA(obj));
 			break;
 		case IS_USER_FUNCTION_TYPE:
-			fprintf(fp, "#<USER-FUNCTION %p>",
-				IS_USER_FUNCTION_PTR(obj));
+			fprintf(fp, "#<USER-FUNCTION %s>",
+				IS_STRING_DATA(IS_SYMBOL_NAME(IS_USER_FUNCTION_NAME(obj))));
 			break;
 		case IS_BUILTIN_FUNCTION_TYPE:
 			fprintf(fp, "#<BUILTIN-FUNCTION %s>",

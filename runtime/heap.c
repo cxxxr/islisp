@@ -234,11 +234,12 @@ ISObject is_make_string(const char *data)
 	return (ISObject) string;
 }
 
-ISObject is_make_user_function(ISFuncPtr ptr)
+ISObject is_make_user_function(ISObject *name, ISFuncPtr ptr)
 {
 	ISUserFunction *func = (ISUserFunction*)alloc(sizeof(ISUserFunction));
 	func->forwarding = 0;
 	func->type = IS_USER_FUNCTION_TYPE;
+	func->name = *name;
 	func->ptr = ptr;
 	return (ISObject) func;
 }

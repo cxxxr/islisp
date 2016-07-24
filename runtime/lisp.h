@@ -135,9 +135,11 @@ typedef struct {
 
 typedef struct {
 	IS_OBJECT_HEADER;
+	ISObject name;
 	ISFuncPtr ptr;
 } ISUserFunction;
 
+#define IS_USER_FUNCTION_NAME(obj) (((ISUserFunction*)obj)->name)
 #define IS_USER_FUNCTION_PTR(obj) (((ISUserFunction*)obj)->ptr)
 
 typedef struct {
@@ -280,7 +282,7 @@ ISObject is_make_float(double);
 ISObject is_make_cons(ISObject *, ISObject *);
 ISObject is_make_symbol(ISObject *);
 ISObject is_make_string(const char *);
-ISObject is_make_user_function(ISFuncPtr);
+ISObject is_make_user_function(ISObject *, ISFuncPtr);
 ISObject is_make_builtin_function(ISFuncPtr, const char *, int, int);
 ISObject is_make_closure(ISFuncPtr);
 ISObject is_make_input_stream(FILE *);

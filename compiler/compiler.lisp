@@ -788,7 +788,8 @@
     (when (is-function-name f)
       (let ((var (cc-add-const ctx (is-function-name f))))
         (cc-format 1
-                   "is_symbol_set_function(~A, is_make_user_function(~A));"
+                   "is_symbol_set_function(~A, is_make_user_function(&~A, ~A));"
+                   var
                    var
                    (is-function-label f)))))
   (dolist (c (context-constant-list ctx))
