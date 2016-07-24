@@ -222,6 +222,16 @@ void is_standard_input_f(int);
 void is_error_output_f(int);
 void is_stream_init(void);
 
+// character.c
+void is_characterp_f(int);
+void is_char_eq_f(int);
+void is_char_ne_f(int);
+void is_char_lt_f(int);
+void is_char_gt_f(int);
+void is_char_le_f(int);
+void is_char_ge_f(int);
+void is_character_init(void);
+
 // number.c
 void is_add_2f(void);
 void is_mul_2f(void);

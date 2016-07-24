@@ -9,6 +9,7 @@ void is_init(void)
 	is_stack_init();
 	is_shelter_init();
 	is_symbol_init();
+	is_character_init();
 	is_number_init();
 	is_stream_init();
 	is_cons_init();
