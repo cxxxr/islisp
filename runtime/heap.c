@@ -70,9 +70,9 @@ static size_t obj_size(ISObject obj)
 	}
 }
 
-static bool to_space_p(ISObject obj)
+static bool from_space_p(ISObject obj)
 {
-	return (ISObject)to_space_start <= obj && obj <= (ISObject)to_space_start + NEWSPACE_SIZE;
+	return (ISObject)from_space_start <= obj && obj <= (ISObject)from_space_start + NEWSPACE_SIZE;
 }
 
 static size_t alignment(size_t size)
@@ -84,7 +84,7 @@ static ISObject copy(ISObject obj)
 {
 	if (!IS_POINTER_P(obj)) return obj;
 
-	if (!to_space_p(IS_HEAP_OBJECT_FORWARDING(obj))) {
+	if (from_space_p(IS_HEAP_OBJECT_FORWARDING(obj))) {
 		size_t size = alignment(obj_size(obj));
 		memcpy(free_space, IS_OBJECT_PTR(obj), size);
 		IS_HEAP_OBJECT_FORWARDING(obj) = (ISObject)free_space;
@@ -173,6 +173,10 @@ static bool require_gc(size_t size)
 
 static ISObject* alloc(size_t size)
 {
+	if (256 <= size) {
+		return is_xmalloc(size);
+	}
+
 	size = alignment(size);
 #if 1
 	if (require_gc(size)) {
