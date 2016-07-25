@@ -19,4 +19,5 @@ void is_init(void)
 	is_call_init();
 	is_env_init();
 	is_print_init();
+	is_error_init();
 }

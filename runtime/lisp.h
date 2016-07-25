@@ -205,6 +205,8 @@ void is_undefined_function(ISObject);
 void is_unbound_variable(ISObject);
 void is_not_an_input_stream(void);
 void is_index_out_of_range(ISObject, ISObject);
+void is_error_f(int);
+void is_error_init(void);
 
 // symbol.c
 ISObject is_intern(ISObject *);
@@ -214,8 +216,9 @@ void is_symbol_set_function(ISObject, ISObject);
 ISObject is_symbol_global(ISObject);
 void is_symbol_set_global(ISObject, ISObject);
 ISObject is_gensym(void);
-void is_add_builtin_function(const char *, ISFuncPtr, int, int);
+void is_gensym_f(int);
 void is_eql_f(int);
+void is_add_builtin_function(const char *, ISFuncPtr, int, int);
 void is_symbol_init(void);
 
 // stream.c

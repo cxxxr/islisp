@@ -210,12 +210,12 @@ ISObject is_make_cons(ISObject *car, ISObject *cdr)
 	return (ISObject) cons;
 }
 
-ISObject is_make_symbol(ISObject *string)
+ISObject is_make_symbol(ISObject *name)
 {
 	ISSymbol *symbol = (ISSymbol*)alloc(sizeof(ISSymbol));
 	symbol->forwarding = 0;
 	symbol->type = IS_SYMBOL_TYPE;
-	symbol->name = (string == NULL ? (ISObject)NULL : *string);
+	symbol->name = (IS_INTEGER_P(name) ? (ISObject)name : *name);
 	symbol->global = (ISObject) NULL;
 	symbol->dynamic = (ISObject) NULL;
 	symbol->property = is_nil;

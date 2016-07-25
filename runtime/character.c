@@ -19,7 +19,7 @@ DEF_CMP_F(is_char_eq_f, ==);
 DEF_CMP_F(is_char_ne_f, !=);
 DEF_CMP_F(is_char_lt_f, <);
 DEF_CMP_F(is_char_gt_f, >);
-DEF_CMP_F(is_char_le_f, <);
+DEF_CMP_F(is_char_le_f, <=);
 DEF_CMP_F(is_char_ge_f, >=);
 
 void is_character_init(void)

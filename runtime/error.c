@@ -101,3 +101,16 @@ void is_index_out_of_range(ISObject vec, ISObject index)
 {
 	is_error("index out of range: % %", vec, index);
 }
+
+void is_error_f(int IS_UNUSED(argc))
+{
+	ISObject string = is_stack_peek(1);
+	if (!IS_STRING_P(string)) is_type_error(string, IS_STRING_TYPE);
+	is_stack_pop(); // ???
+	is_error(IS_STRING_DATA(string));
+}
+
+void is_error_init(void)
+{
+	is_add_builtin_function("IS:ERROR", is_error_f, 1, 1);
+}

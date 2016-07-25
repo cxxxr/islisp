@@ -22,7 +22,7 @@ void is_print(ISObject obj, FILE *fp)
 	if (IS_INTEGER_P(obj)) {
 		fprintf(fp, "%ld", IS_INTEGER(obj));
 	} else if (IS_CHARACTER_P(obj)) {
-		fprintf(fp, "#\\%c", IS_CHARACTER(obj));
+		fprintf(fp, "#\\%c", (char)(IS_CHARACTER(obj)));
 	} else {
 		switch (IS_HEAP_OBJECT_TYPE(obj)) {
 		case IS_FLOAT_TYPE:
@@ -32,8 +32,11 @@ void is_print(ISObject obj, FILE *fp)
 			print_cons(obj, fp, false);
 			break;
 		case IS_SYMBOL_TYPE:
-			fprintf(fp, "%s",
-				IS_STRING_DATA(IS_SYMBOL_NAME(obj)));
+			if (IS_INTEGER_P(IS_SYMBOL_NAME(obj))) {
+				fprintf(fp, "#:%d", (int)(IS_INTEGER(IS_SYMBOL_NAME(obj))));
+			} else {
+				fprintf(fp, "%s", IS_STRING_DATA(IS_SYMBOL_NAME(obj)));
+			}
 			break;
 		case IS_STRING_TYPE:
 			fprintf(fp, "\"%s\"", IS_STRING_DATA(obj));
