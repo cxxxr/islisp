@@ -1012,6 +1012,7 @@
   (is-compile-file "../lisp/predicate.lsp"
                    "../lisp/control.lsp"
                    "../lisp/list.lsp"
+                   "../lisp/number.lsp"
                    "../lisp/read.lsp"))
 
 (make)

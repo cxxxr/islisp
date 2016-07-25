@@ -1,0 +1,33 @@
+(defun is:parse-number* (string)
+  (let ((length (is:string-length string))
+        (minusp nil)
+        (i 0)
+        (number 0)
+        (numberp nil))
+    (tagbody
+      (if (= length 0)
+          (go END))
+      (case (is:string-ref string 0)
+        ((#\+)
+         (setq i (+ i 1)))
+        ((#\-)
+         (setq i (+ i 1))
+         (setq minusp t)))
+      (while (< i length)
+        (let ((c (is:string-ref string i)))
+          (cond ((and (char<= #\0 c) (char<= c #\9))
+                 (setq numberp nil)
+                 (setq number
+                       (+ (- (is:convert-char-to-integer c)
+                             (is:convert-char-to-integer #\0))
+                          (* 10 number))))
+                (t
+                 (setq number nil)
+                 (go END))))
+        (setq i (+ i 1)))
+      END)
+    (if (or (null number) (not numberp))
+        nil
+        (if minusp
+            (- number)
+            number))))
