@@ -761,11 +761,11 @@
                (dolist (f (context-functions ctx))
                  (cc-function ctx f))
                (cc-toplevel ctx code)
-               (cc-loader ctx code)
-               (cc-main ctx)
+               (cc-loader ctx)
+               (cc-main)
                (get-output-stream-string (dynamic *cc-stream*))))
 
-(defun cc-main (ctx)
+(defun cc-main ()
   (cc-format 0 "int main(void)~%{")
   (cc-format 1 "is_init();")
   (cc-format 1 "loader();")
@@ -777,7 +777,7 @@
   (cc-code ctx code)
   (cc-format 0 "}"))
 
-(defun cc-loader (ctx code)
+(defun cc-loader (ctx)
   (cc-format 0 "void loader(void)~%{")
   (cc-format 1 "is_gc_disable();")
   (dolist (c (context-constant-list ctx))
