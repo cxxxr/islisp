@@ -98,6 +98,12 @@
 (defun syntax-error (msg &rest args)
   (apply #'error msg args))
 
+(defun env-get (env x)
+  (let ((v (assoc x env)))
+    (if v
+        (cdr v)
+        nil)))
+
 
 (defdynamic *pass1-env* nil)
 (defdynamic *pass1-tag-env* nil)
@@ -117,14 +123,8 @@
         (t
          (pass1-compound-form x))))
 
-(defun pass1-env-get (env s)
-  (let ((v (assoc s env)))
-    (if v
-	(cdr v)
-	nil)))
-
 (defun pass1-refvar (s)
-  (let ((v (pass1-env-get (dynamic *pass1-env*) s)))
+  (let ((v (env-get (dynamic *pass1-env*) s)))
     (if v
         (make-ast 'REF-LVAR v)
         (make-ast 'REF-GVAR s))))
@@ -270,7 +270,7 @@
                                             (if (property form 'tag-used-p)
                                                 (syntax-error "duplicated tag: ~A in ~A" form x)
                                                 (set-property t form 'tag-used-p))
-                                            (pass1-env-get env1 form))
+                                            (env-get env1 form))
                                            (t
                                             (pass1 form))))
                                    (cdr x))))))
@@ -280,7 +280,7 @@
   (let ((tag (second x)))
     (unless (symbolp tag)
       (type-error x tag '<symbol>))
-    (let ((result (pass1-env-get (dynamic *pass1-tag-env*) tag)))
+    (let ((result (env-get (dynamic *pass1-tag-env*) tag)))
       (if result
           (make-ast 'GO result)
         (syntax-error "Go Tag not found: ~A" tag)))))
@@ -295,7 +295,7 @@
      (unless (symbolp (second x))
        (type-error x (second x) '<symbol>))
      (if (eq 'SETQ (first x))
-         (let ((var (pass1-env-get (dynamic *pass1-env*) (second x)))
+         (let ((var (env-get (dynamic *pass1-env*) (second x)))
                (val (pass1 (third x))))
            (if var
                (make-ast 'SET-LVAR var val)
@@ -463,12 +463,6 @@
     (when (eq sym (car elt))
       (return (cdr elt)))))
 
-(defun codegen-env-get (env sym)
-  (let ((v (assoc sym env)))
-    (if v
-        (cdr v)
-        nil)))
-
 (defun codegen (ctx x env)
   (case (ast-op x)
     ((CONST)
@@ -481,13 +475,13 @@
      (genseq (codegen ctx (ast-arg2 x) env)
              (gen 'GSET (ast-arg1 x))))
     ((REF-LVAR)
-     (let ((var (codegen-env-get env (ast-arg1 x))))
+     (let ((var (env-get env (ast-arg1 x))))
        (if var
            (gen 'LREF var)
            (let ((var (codegen-add-heap-var ctx (ast-arg1 x))))
              (gen 'LREF var)))))
     ((SET-LVAR)
-     (let ((var (codegen-env-get env (ast-arg1 x))))
+     (let ((var (env-get env (ast-arg1 x))))
        (if var
            (genseq (codegen ctx (ast-arg2 x) env)
                    (gen 'LSET var))
@@ -562,10 +556,10 @@
             (genseq code
                     (if (property v 'heap-p)
                         (gen 'HEAP-VAR
-                             (codegen-env-get env1 v)
+                             (env-get env1 v)
                              v)
                       (gen 'LOCAL-VAR
-                           (codegen-env-get env1 v)
+                           (env-get env1 v)
                            (+ 1 (decf peek-offset)))))))
     code))
 
@@ -667,7 +661,7 @@
                      env)))
     (let ((code (genseq (mapcan (lambda (form)
                                   (if (symbolp form)
-                                      (gen 'LABEL (codegen-env-get env form))
+                                      (gen 'LABEL (env-get env form))
                                     (genseq (codegen ctx form env)
                                             (gen 'POP))))
                                 forms)
@@ -686,7 +680,7 @@
           code)))))
 
 (defun codegen-go (ctx tag env)
-  (let ((res (codegen-env-get env tag)))
+  (let ((res (env-get env tag)))
     (cond (res
            (gen 'JUMP res))
           (t
