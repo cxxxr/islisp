@@ -239,7 +239,7 @@
       (funcall make-ast-function
                (replace-lambda-list-with-alist env1 lambda-list)
                (dynamic-let ((*pass1-env* (append env1 (dynamic *pass1-env*))))
-                            (pass1 `(progn ,@(cdr x))))))))
+                            (pass1-progn (cdr x)))))))
 
 (defun dset-lambda-list (form lambda-list args)
   (let ((bindings nil))
@@ -310,7 +310,10 @@
                                                                body))))
                                      definitions))
                 (dynamic-let ((*pass1-fun-env* env))
-                             (pass1 `(progn ,@body)))))))
+                             (pass1-progn body))))))
+
+(defun pass1-progn (forms)
+  (make-ast 'PROGN (mapcar #'pass1 forms)))
 
 (defun pass1-compound-form (x)
   (case (car x)
@@ -347,7 +350,7 @@
                                               (cadr x)
                                               binds)
                                       (dynamic *pass1-env*))))
-                            (pass1 `(progn ,@(cddr x)))))))
+                            (pass1-progn (cddr x))))))
        (make-ast 'LET binds body)))
     ((FUNCTION)
      (check-arg-count x 1 1)
@@ -386,9 +389,7 @@
                    (pass1 (fourth x))
                  (make-ast 'CONST nil))))
     ((PROGN)
-     (make-ast 'PROGN
-               (mapcar (lambda (x) (pass1 x))
-                       (cdr x))))
+     (pass1-progn (cdr x)))
     ((TAGBODY)
      (pass1-tagbody x))
     ((GO)
