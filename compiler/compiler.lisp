@@ -106,6 +106,7 @@
 
 
 (defdynamic *pass1-env* nil)
+(defdynamic *pass1-fun-env* nil)
 (defdynamic *pass1-tag-env* nil)
 
 (defun make-var (sym)
@@ -285,6 +286,32 @@
           (make-ast 'GO result)
         (syntax-error "Go Tag not found: ~A" tag)))))
 
+(defun pass1-labels (form definitions body flet-or-labels)
+  (let ((fun-env1 nil))
+    (dolist (def definitions)
+      (check-arg-count def 2 -1)
+      (unless (symbolp (car def))
+        (type-error form (car def) '<symbol>))
+      (push (cons (car def) (make-var (car def)))
+            fun-env1))
+    (let ((env (append fun-env1 (dynamic *pass1-fun-env*))))
+      (make-ast flet-or-labels
+                (mapcar #'cdr fun-env1)
+                (dynamic-let ((*pass1-fun-env*
+                               (if (eq flet-or-labels 'flet)
+                                   (dynamic *pass1-fun-env*)
+                                   env)))
+                             (mapcar (lambda (def)
+                                       (pass1-funcbody form
+                                                       (cdr def)
+                                                       (lambda (lambda-list body)
+                                                         (list (env-get fun-env1 (car def))
+                                                               lambda-list
+                                                               body))))
+                                     definitions))
+                (dynamic-let ((*pass1-fun-env* env))
+                             (pass1 `(progn ,@body)))))))
+
 (defun pass1-compound-form (x)
   (case (car x)
     ((QUOTE)
@@ -326,7 +353,14 @@
      (check-arg-count x 1 1)
      (unless (second x)
        (type-error x (second x) '<symbol>))
-     (make-ast 'FUNCTION (second x)))
+     (let ((res (env-get (dynamic *pass1-fun-env*)
+                         (second x))))
+       (if res
+           (make-ast 'LOCAL-FUNCTION res)
+           (make-ast 'FUNCTION (second x)))))
+    ((FLET LABELS)
+     (check-arg-count x 1 -1)
+     (pass1-labels x (cadr x) (cddr x) (car x)))
     ((LAMBDA)
      (check-arg-count x 1 -1)
      (pass1-funcbody x (cdr x)
@@ -368,17 +402,20 @@
          (pass1 `(let ,bindings
                    ,@(cddr lambda-form)))))
       ((symbolp (car x))
-       (let ((macro (property (car x) 'macro)))
+       (let ((macro (property (car x) 'macro))
+             (func nil))
          (cond (macro
                 (pass1 (eval `((lambda ,@macro)
                                ,@(mapcar (lambda (x) `(quote ,x))
                                          (cdr x))))))
+               ((setq func (env-get (dynamic *pass1-fun-env*) (car x)))
+                (make-ast 'LCALL
+                          func
+                          (mapcar #'pass1 (cdr x))))
                (t
                 (make-ast 'CALL
                           (car x)
-                          (mapcar (lambda (arg)
-                                    (pass1 arg))
-                                  (cdr x)))))))
+                          (mapcar #'pass1 (cdr x)))))))
       (t
        (syntax-error "Illegal form ~A" x))))))
 
@@ -423,7 +460,7 @@
 (defun print-context (ctx)
   (dolist (f (context-functions ctx))
     (format (standard-output)
-            "~%~A(~A) ~A:~%"
+            "~%~A ~A ~A:~%"
             (is-function-name f)
             (is-function-lambda-list f)
             (is-function-label f))
@@ -469,6 +506,8 @@
      (gen 'CONST (ast-arg1 x)))
     ((FUNCTION)
      (gen 'FUNCTION (ast-arg1 x)))
+    ((LOCAL-FUNCTION)
+     (gen 'LOCAL-FUNCTION (ast-arg1 x)))
     ((REF-GVAR)
      (gen 'GREF (ast-arg1 x)))
     ((SET-GVAR)
@@ -494,6 +533,8 @@
      (codegen-lambda ctx (ast-arg1 x) (ast-arg2 x) env))
     ((DEFUN)
      (codegen-defun ctx (ast-arg1 x) (ast-arg2 x) (ast-arg3 x) env))
+    ((LABELS)
+     (codegen-labels ctx (ast-arg1 x) (ast-arg2 x) (ast-arg3 x) env))
     ((IF)
      (codegen-if ctx (ast-arg1 x) (ast-arg2 x) (ast-arg3 x) env))
     ((PROGN)
@@ -502,8 +543,10 @@
      (codegen-tagbody ctx (ast-arg1 x) (ast-arg2 x) env))
     ((GO)
      (codegen-go ctx (ast-arg1 x) env))
+    ((LCALL)
+     (codegen-call ctx (ast-arg1 x) (ast-arg2 x) env t))
     ((CALL)
-     (codegen-call ctx (ast-arg1 x) (ast-arg2 x) env))
+     (codegen-call ctx (ast-arg1 x) (ast-arg2 x) env nil))
     (t
      (error "unknown operator: ~A" (ast-op x)))))
 
@@ -631,6 +674,20 @@
     (setf (is-function-name function) name)
     (gen 'CONST name)))
 
+(defun codegen-labels (ctx fnames definitions body env)
+  (let ((functions
+         (mapcar (lambda (def)
+                   (codegen-lambda-internal ctx
+                                            (second def)
+                                            (third def)
+                                            env))
+                 definitions)))
+    (mapc (lambda (fname function)
+            (set-property function fname 'function))
+          fnames
+          functions)
+    (codegen ctx body env)))
+
 (defun codegen-if (ctx test then else env)
   (let ((label1 (codegen-newlabel ctx))
         (label2 (codegen-newlabel ctx)))
@@ -687,13 +744,16 @@
            (set-property t tag 'long-jump-p)
            (gen 'LONG-JUMP tag)))))
 
-(defun codegen-call (ctx func args env)
+(defun codegen-call (ctx func args env local)
   (let ((code nil)
         (length 0))
     (dolist (arg args)
       (incf length)
       (setq code (genseq code (codegen ctx arg env))))
-    (genseq code (gen 'CALL func length))))
+    (genseq code
+            (if local
+                (gen 'LCALL func length)
+                (gen 'CALL func length)))))
 
 
 (defun instr-op (instr)
@@ -882,6 +942,10 @@
     ((FUNCTION)
      (let ((v (cc-add-const ctx (instr-arg1 instr))))
        (cc-format 1 "is_stack_push(is_symbol_function(~A));" v)))
+    ((LOCAL-FUNCTION)
+     (cc-format 1 "is_stack_push(is_make_closure(~A))"
+                (is-function-label
+                 (property (instr-arg1 instr) 'function))))
     ((GREF)
      (let ((v (cc-add-const ctx (instr-arg1 instr))))
        (cc-format 1 "is_stack_push(is_symbol_global(~A));" v)))
@@ -892,11 +956,14 @@
      (cc-format 1 "is_call(~A, ~A);"
                 (cc-add-const ctx (instr-arg1 instr))
                 (instr-arg2 instr)))
+    ((LCALL)
+     (cc-format 1 "~A(~A);"
+                (is-function-label (property (instr-arg1 instr) 'function))
+                (instr-arg2 instr)))
     ((ARGS)
      (let ((min (instr-arg1 instr))
            (max (instr-arg2 instr))
-           (default-code-list (instr-arg3 instr))
-           )
+           (default-code-list (instr-arg3 instr)))
        (cond ((eql min max)
               (cc-format 1 "if (argc != ~A) is_argc_error();" min))
              ((null max)
