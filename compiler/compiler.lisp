@@ -576,7 +576,7 @@
     (let ((body-code (codegen ctx body (append env1 env))))
       (let ((peek-offset (length bindings))
             (stack-push-count 0))
-        (genseq (gen 'BLOCK-START)
+        (genseq (gen 'BEGIN)
                 (mapcan (lambda (b)
                           (codegen ctx (cadr b) env))
                         bindings)
@@ -590,7 +590,7 @@
                         env1)
                 body-code
                 (gen 'NIP stack-push-count)
-                (gen 'BLOCK-END))))))
+                (gen 'END))))))
 
 (defun codegen-lambda-list (vars env1 num-args)
   (let ((peek-offset num-args)
@@ -654,13 +654,13 @@
                          'code (genseq (gen 'ARGS min max
                                             (mapcar (lambda (opt) (codegen ctx (second opt) nil))
                                                     (second lambda-list)))
-                                       (gen 'BLOCK-START)
+                                       (gen 'BEGIN)
                                        extend-env-code
                                        lambda-list-code
                                        load-env-code
                                        body-code
                                        (when (/= 0 num-args) (gen 'NIP num-args))
-                                       (gen 'BLOCK-END)
+                                       (gen 'END)
                                        (gen 'RETURN)))))
             (codegen-add-function ctx function)
             (setf (context-heap-vars ctx) prev-heap-vars)
@@ -1029,10 +1029,10 @@
      (cc-tagbody-end ctx instr))
     ((LONG-JUMP)
      (cc-longjmp ctx instr))
-    ((BLOCK-START)
+    ((BEGIN)
      (cc-format 1 "{")
      (incf (dynamic *cc-indent-offset*)))
-    ((BLOCK-END)
+    ((END)
      (decf (dynamic *cc-indent-offset*))
      (cc-format 1 "}"))
     ((RETURN)
