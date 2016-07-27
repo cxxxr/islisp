@@ -965,7 +965,10 @@
 		      (cc-format 1 "~A = is_make_float(~A);" var value)
 		      var)
 		     ((stringp value)
-		      (cc-format 1 "~A = is_make_string(\"~A\");" var value)
+                      (string-append var
+                                     " = is_make_string(\""
+                                     value
+                                     "\");")
 		      var)
                      ((characterp value)
                       (cc-format 1 "~A = is_make_character(~D);" var (convert value <integer>))
