@@ -317,6 +317,15 @@
 (defun pass1-progn (forms)
   (make-ast 'PROGN (mapcar #'pass1 forms)))
 
+(defun pass1-let-bindings (form bindings bind-fun)
+  (mapcar (lambda (b)
+            (unless (and (consp b)
+                         (= 2 (length b))
+                         (symbolp (car b)))
+              (syntax-error "Illegal ~A form ~A" (car form) form))
+            (funcall bind-fun (first b) (second b)))
+          bindings))
+
 (defun pass1-compound-form (x)
   (case (car x)
     ((QUOTE)
@@ -334,15 +343,13 @@
                (make-ast 'SET-GVAR (second x) val)))
          (make-ast 'SET-GVAR (second x) (pass1 (third x)))))
     ((LET)
+     (check-arg-count x 1 -1)
      (let* ((binds
-             (mapcar (lambda (b)
-                       (unless (and (consp b)
-                                    (= 2 (length b))
-                                    (symbolp (car b)))
-                         (syntax-error "Illegal let form ~A" x))
-                       (list (make-var (cadr b))
-                             (pass1 (cadr b))))
-                     (cadr x)))
+             (pass1-let-bindings x
+                                 (cadr x)
+                                 (lambda (var value)
+                                   (list (make-var var)
+                                         (pass1 value)))))
             (body
              (when (cddr x)
                (dynamic-let ((*pass1-env*
@@ -430,6 +437,34 @@
      (make-ast 'UNWIND-PROTECT
                (pass1 (cadr x))
                (pass1-progn (cddr x))))
+    ((DEFDYNAMIC)
+     (check-arg-count x 2 2)
+     (unless (symbolp (second x))
+       (type-error x (second x) '<symbol>))
+     (make-ast 'DYNAMIC-SET
+               (second x)
+               (pass1 (third x))))
+    ((DYNAMIC)
+     (check-arg-count x 1 1)
+     (unless (symbolp (second x))
+       (type-error x (second x) '<symbol>))
+     (make-ast 'DYNAMIC (second x)))
+    ((DYNAMIC-LET)
+     (check-arg-count x 1 -1)
+     (make-ast 'DYNAMIC-LET
+               (pass1-let-bindings x
+                                   (cadr x)
+                                   (lambda (var value)
+                                     (list var (pass1 value))))
+               (when (cddr x)
+                 (pass1-progn (cddr x)))))
+    ((SETQ-DYNAMIC)
+     (check-arg-count x 2 2)
+     (unless (symbolp (second x))
+       (type-error x (second x) '<symbol>))
+     (make-ast 'DYNAMIC-SET
+               (second x)
+               (pass1 (third x))))
     (t
      (cond
       ((lambda-form-p (car x))
@@ -590,6 +625,18 @@
      (codegen-throw ctx (ast-arg1 x) (ast-arg2 x) env))
     ((UNWIND-PROTECT)
      (codegen-unwind-protect ctx (ast-arg1 x) (ast-arg2 x) env))
+    ((DYNAMIC)
+     (gen 'DYNAMIC (ast-arg1 x)))
+    ((DYNAMIC-SET)
+     (genseq (codegen ctx (ast-arg2 x) env)
+             (gen 'DYNAMIC-SET (ast-arg1 x))))
+    ((DYNAMIC-LET)
+     (genseq (mapcan (lambda (b)
+                       (genseq (codegen ctx (second b) env)
+                               (gen 'DYNAMIC-PUSH (first b))))
+                     (ast-arg1 x))
+             (codegen ctx (ast-arg2 x) env)
+             (gen 'DYNAMIC-POP (length (ast-arg1 x)))))
     ((LCALL)
      (codegen-call ctx (ast-arg1 x) (ast-arg2 x) env t))
     ((CALL)
@@ -1186,6 +1233,21 @@
 
 (define-instruction RETURN (ctx)
   (cc-format 1 "return;"))
+
+(define-instruction DYNAMIC (ctx symbol)
+  (cc-format 1 "is_dynamic(~A);"
+             (cc-add-const ctx symbol)))
+
+(define-instruction DYNAMIC-SET (ctx symbol)
+  (cc-format 1 "is_dynamic_set(~A, is_stack_peek(1));"
+             (cc-add-const ctx symbol)))
+
+(define-instruction DYNAMIC-PUSH (ctx symbol)
+  (cc-format 1 "is_dynamic_push(~A, is_stack_peek(1));"
+             (cc-add-const ctx symbol)))
+
+(define-instruction DYNAMIC-POP (ctx n)
+  (cc-format 1 "is_dynamic_pop(~A);" n))
 
 (defun cc-instr (ctx instr)
   (let ((emit (property (instr-op instr) *instr-indicator*)))
