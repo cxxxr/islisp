@@ -789,7 +789,7 @@
            (gen 'JUMP res))
           (t
            (set-property t tag 'longjmp-p)
-           (gen 'LONG-JUMP tag)))))
+           (gen 'GO tag)))))
 
 (defun codegen-block (ctx name body env)
   (let* ((label (gen-uniq "NAME_"))
@@ -799,7 +799,6 @@
                    (append (cons name label)
                            env))))
     (cond ((property name 'longjmp-p)
-           (set-property 1 name 'longjmp-value)
            (genseq (gen 'BLOCK-BEGIN name)
                    code
                    (gn 'BLOCK-END name)))
@@ -817,7 +816,7 @@
                    (gen 'JUMP res)))
           (t
            (set-property t name 'longjmp-p)
-           (gen 'LONG-JUMP name)))))
+           (gen 'RETURN-FROM name)))))
 
 (defun codegen-catch (ctx tag-form body env)
   (genseq (codegen ctx tag-form env)
@@ -998,11 +997,125 @@
   (dolist (instr code)
     (cc-instr ctx instr)))
 
-(defun cc-tagbody-begin (ctx instr)
+
+(defglobal *instr-indicator* (gensym))
+
+(defmacro define-instruction (instr-op args &rest body)
+  (let ((gname (gensym))
+        (ginstr (gensym)))
+    `(progn
+       (defun ,gname (,(car args) ,ginstr)
+         (let ,(mapcar (lambda (arg accessor)
+                         `(,arg (,accessor ,ginstr)))
+                       (cdr args)
+                       '(instr-arg1 instr-arg2 instr-arg3))
+           ,@body))
+       (set-property #',gname ',instr-op *instr-indicator*))))
+
+(define-instruction CONST (ctx arg1)
+  (cc-format 1 "is_stack_push(~A);"
+             (cc-add-const ctx arg1)))
+
+(define-instruction FUNCTION (ctx arg1)
+  (cc-format 1 "is_stack_push(is_symbol_function(~A));"
+             (cc-add-const ctx arg1)))
+
+(define-instruction LOCAL-FUNCTION (ctx arg1)
+  (cc-format 1 "is_stack_push(is_make_closure(~A))"
+             (is-function-label
+              (property arg1 'function))))
+
+(define-instruction GREF (ctx arg1)
+  (cc-format 1 "is_stack_push(is_symbol_global(~A));"
+             (cc-add-const ctx arg1)))
+
+(define-instruction GSET (ctx arg1)
+  (cc-format 1 "is_symbol_set_global(~A, is_stack_peek(1));"
+             (cc-add-const ctx arg1)))
+
+(define-instruction CALL (ctx arg1 arg2)
+  (cc-format 1 "is_call(~A, ~A);"
+             (cc-add-const ctx arg1)
+             arg2))
+
+(define-instruction LCALL (ctx arg1 arg2)
+  (cc-format 1 "~A(~A);"
+             (is-function-label (property arg1 'function))
+             arg2))
+
+(define-instruction ARGS (ctx min max default-code-list)
+  (cond ((eql min max)
+         (cc-format 1 "if (argc != ~A) is_argc_error();" min))
+        ((null max)
+         (cc-format 1 "if (argc < ~A) is_argc_error();" min)
+         (cc-format 1 "is_stack_build_list(argc-~A);" min))
+        (t
+         (cc-format 1 "switch (argc) {")
+         (dotimes (i min)
+           (cc-format 2 "case ~A:" i))
+         (let ((i min))
+           (dolist (code default-code-list)
+             (cc-format 2 "case ~A:" i)
+             (dynamic-let ((*cc-indent-offset*
+                            (+ 2 (dynamic *cc-indent-offset*))))
+                          (cc-code ctx code))
+             (incf i))
+           (cond ((null max)
+                  (cc-format 3 "is_stack_push(nil);")
+                  (cc-format 3 "break;")
+                  (cc-format 2 "default:")
+                  (cc-format 3 "is_stack_build_list(argc-~A);" (+ min (length default-code-list))))
+                 (t
+                  (cc-format 2 "case ~A:" i)
+                  (cc-format 3 "break;")
+                  (cc-format 2 "default:")
+                  (cc-format 3 "is_argc_error();")))
+           (cc-format 1 "}")))))
+
+(define-instruction EXTEND-ENV (ctx n peeks)
+  (cc-format 1
+             "is_env_extend(~A, ~A);"
+             n
+             (cc-list-to-string (reverse peeks) "" ", ")))
+
+(define-instruction CLOSE (ctx arg1)
+  (cc-format 1 "is_stack_push(is_make_closure(~A));"
+             (is-function-label arg1)))
+
+(define-instruction HEAP-VAR (ctx arg1 arg2)
+  (cc-format 1 "ISObject *~A = is_env_get(~A);"
+             arg1
+             (property arg2 'env-offset)))
+
+(define-instruction LOCAL-VAR (ctx arg1 arg2)
+ (cc-format 1 "ISObject *~A = is_stack_peek_ptr(~A);"
+            arg1 arg2))
+
+(define-instruction LREF (ctx arg1)
+  (cc-format 1 "is_stack_push(*~A);" arg1))
+
+(define-instruction LSET (ctx arg1)
+  (cc-format 1 "*~A = is_stack_peek(1);" arg1))
+
+(define-instruction NIP (ctx arg1)
+  (cc-format 1 "is_stack_nip(~A);" arg1))
+
+(define-instruction POP (ctx)
+  (cc-format 1 "is_stack_pop();"))
+
+(define-instruction JUMP-IF-FALSE (ctx arg1)
+  (cc-format 1 "if (is_stack_top_null()) goto ~A;" arg1))
+
+(define-instruction JUMP (ctx arg1)
+  (cc-format 1 "goto ~A;" arg1))
+
+(define-instruction LABEL (ctx arg1)
+  (cc-format 0 "~A:;" arg1))
+
+(define-instruction TAGBODY-BEGIN (ctx tags)
   (cc-format 1 "{")
-  (let ((tags (instr-arg1 instr))
-        (tag-array-var (gen-uniq ctx "tag_array_"))
-       (jmpbuf-var (gen-uniq ctx "jmpbuf_")))
+  (let ((tag-array-var (gen-uniq ctx "tag_array_"))
+        (jmpbuf-var (gen-uniq ctx "jmpbuf_")))
     (push jmpbuf-var (context-jmpbuf-vars ctx))
     (dolist (tag tags) (set-property jmpbuf-var tag 'jmpbuf))
     (cc-format 2 "void *~A[] = {~A};"
@@ -1013,138 +1126,69 @@
                         tags)
                 "&&" ", "))
     (let ((tmp-var (gen-uniq ctx "tmp_")))
-      (cc-format 2 "int ~A = setjmp(~A);" tmp-var jmpbuf-var)
+      (cc-format 2 "int ~A = is_setjmp(&~A);" tmp-var jmpbuf-var)
       (cc-format 2 "if (~A != 0) goto *~A[~A-1];" tmp-var tag-array-var tmp-var))
     (incf (dynamic *cc-indent-offset*))))
 
-(defun cc-tagbody-end (ctx instr)
+(define-instruction TAGBODY-END (ctx tags)
   (decf (dynamic *cc-indent-offset*))
   (cc-format 1 "}"))
 
-(defun cc-longjmp (ctx instr)
-  (cc-format 1 "is_longjmp(~A, ~A);"
-             (property (instr-arg1 instr) 'jmpbuf)
-             (property (instr-arg1 instr) 'longjmp-value)))
+(define-instruction GO (ctx name)
+  (let ((v (cc-add-const ctx (property name 'name))))
+    (cc-format 1 "is_longjmp_go(~A, ~A, ~A);"
+               (property name 'jmpbuf)
+               (property name 'longjmp-value)
+               v)))
+
+(define-instruction BLOCK-BEGIN (ctx name)
+  (cc-format 1 "{")
+  (let ((jmpbuf-var (gen-uniq ctx "jmpbuf_")))
+    (push jmpbuf-var (context-jmpbuf-vars ctx))
+    (cc-format 2 "if (is_setjmp(&~A) == 0) {" jmpbuf-var)
+    (incf (dynamic *cc-indent-offset*))))
+
+(define-instruction BLOCK-END (ctx name)
+  (decf (dynamic *cc-indent-offset*))
+  (cc-format 1 "}"))
+
+(define-instruction RETURN-FROM (ctx name)
+  (let ((v (cc-add-const ctx (property arg1 'name))))
+    (cc-format 1 "is_longjmp_return_from(~A, ~A);"
+               (property name 'jmpbuf)
+               v)))
+
+(define-instruction CATCH-BEGIN (ctx)
+  (cc-format 1 "is_catch_begin();"))
+
+(define-instruction CATCH-END (ctx)
+  (cc-format 1 "is_catch_end();"))
+
+(define-instruction THROW (ctx)
+  (cc-format 1 "is_throw();"))
+
+(define-instruction UNWIND-BEGIN (ctx function)
+  (cc-format 1 "is_unwind_begin(~A);" (is-function-label function)))
+
+(define-instruction UNWIND-END (ctx function)
+  (cc-format 1 "is_unwind_end();"))
+
+(define-instruction BEGIN (ctx)
+  (cc-format 1 "{")
+  (incf (dynamic *cc-indent-offset*)))
+
+(define-instruction END (ctx)
+  (decf (dynamic *cc-indent-offset*))
+  (cc-format 1 "}"))
+
+(define-instruction RETURN (ctx)
+  (cc-format 1 "return;"))
 
 (defun cc-instr (ctx instr)
-  (case (instr-op instr)
-    ((CONST)
-     (let ((v (cc-add-const ctx (instr-arg1 instr))))
-       (cc-format 1 "is_stack_push(~A);" v)))
-    ((FUNCTION)
-     (let ((v (cc-add-const ctx (instr-arg1 instr))))
-       (cc-format 1 "is_stack_push(is_symbol_function(~A));" v)))
-    ((LOCAL-FUNCTION)
-     (cc-format 1 "is_stack_push(is_make_closure(~A))"
-                (is-function-label
-                 (property (instr-arg1 instr) 'function))))
-    ((GREF)
-     (let ((v (cc-add-const ctx (instr-arg1 instr))))
-       (cc-format 1 "is_stack_push(is_symbol_global(~A));" v)))
-    ((GSET)
-     (let ((v (cc-add-const ctx (instr-arg1 instr))))
-       (cc-format 1 "is_symbol_set_global(~A, is_stack_peek(1));" v)))
-    ((CALL)
-     (cc-format 1 "is_call(~A, ~A);"
-                (cc-add-const ctx (instr-arg1 instr))
-                (instr-arg2 instr)))
-    ((LCALL)
-     (cc-format 1 "~A(~A);"
-                (is-function-label (property (instr-arg1 instr) 'function))
-                (instr-arg2 instr)))
-    ((ARGS)
-     (let ((min (instr-arg1 instr))
-           (max (instr-arg2 instr))
-           (default-code-list (instr-arg3 instr)))
-       (cond ((eql min max)
-              (cc-format 1 "if (argc != ~A) is_argc_error();" min))
-             ((null max)
-              (cc-format 1 "if (argc < ~A) is_argc_error();" min)
-              (cc-format 1 "is_stack_build_list(argc-~A);" min))
-             (t
-              (cc-format 1 "switch (argc) {")
-              (dotimes (i min)
-                (cc-format 2 "case ~A:" i))
-              (let ((i min))
-                (dolist (code default-code-list)
-                  (cc-format 2 "case ~A:" i)
-                  (dynamic-let ((*cc-indent-offset*
-                                 (+ 2 (dynamic *cc-indent-offset*))))
-                               (cc-code ctx code))
-                  (incf i))
-                (cond ((null max)
-                       (cc-format 3 "is_stack_push(nil);")
-                       (cc-format 3 "break;")
-                       (cc-format 2 "default:")
-                       (cc-format 3 "is_stack_build_list(argc-~A);" (+ min (length default-code-list))))
-                      (t
-                       (cc-format 2 "case ~A:" i)
-                       (cc-format 3 "break;")
-                       (cc-format 2 "default:")
-                       (cc-format 3 "is_argc_error();")))
-                (cc-format 1 "}"))))))
-    ((EXTEND-ENV)
-     (let ((n (instr-arg1 instr))
-           (peeks (instr-arg2 instr)))
-       (cc-format 1
-		  "is_env_extend(~A, ~A);"
-		  n
-		  (cc-list-to-string (reverse peeks) "" ", "))))
-    ((CLOSE)
-     (cc-format 1 "is_stack_push(is_make_closure(~A));" (is-function-label (instr-arg1 instr))))
-    ((HEAP-VAR)
-     (cc-format 1 "ISObject *~A = is_env_get(~A);"
-                (instr-arg1 instr)
-                (property (instr-arg2 instr) 'env-offset)))
-    ((LOCAL-VAR)
-     (cc-format 1 "ISObject *~A = is_stack_peek_ptr(~A);"
-                (instr-arg1 instr)
-                (instr-arg2 instr)))
-    ((LREF)
-     (cc-format 1 "is_stack_push(*~A);" (instr-arg1 instr)))
-    ((LSET)
-     (cc-format 1 "*~A = is_stack_peek(1);" (instr-arg1 instr)))
-    ((NIP)
-     (cc-format 1 "is_stack_nip(~A);" (instr-arg1 instr)))
-    ((POP)
-     (cc-format 1 "is_stack_pop();"))
-    ((JUMP-IF-FALSE)
-     (cc-format 1 "if (is_stack_top_null()) goto ~A;" (instr-arg1 instr)))
-    ((JUMP)
-     (cc-format 1 "goto ~A;" (instr-arg1 instr)))
-    ((LABEL)
-     (cc-format 0 "~A:;" (instr-arg1 instr)))
-    ((TAGBODY-BEGIN)
-     (cc-tagbody-begin ctx instr))
-    ((TAGBODY-END)
-     (cc-tagbody-end ctx instr))
-    ((LONG-JUMP)
-     (cc-longjmp ctx instr))
-    ((BLCOK-BEGIN)
-     )
-    ((BLOCK-END)
-     )
-    ((CATCH-BEGIN)
-     )
-    ((CATCH-END)
-     )
-    ((THROW)
-     )
-    ((UNWIND-BEGIN)
-     )
-    ((UNWIND-END)
-     )
-    ((BEGIN)
-     (cc-format 1 "{")
-     (incf (dynamic *cc-indent-offset*)))
-    ((END)
-     (decf (dynamic *cc-indent-offset*))
-     (cc-format 1 "}"))
-    ((RETURN)
-     (cc-format 1 "return;"))
-    (t
-     (error "unknown instruction: ~A" (instr-op instr)))))
-
+  (let ((emit (property (instr-op instr) *instr-indicator*)))
+    (if emit
+        (funcall emit ctx instr)
+      (error "unknow instruction: ~A" (instr-op instr)))))
 
 
 (defglobal *output-file* "../runtime/OUTPUT.c")
