@@ -108,6 +108,7 @@
 (defdynamic *pass1-env* nil)
 (defdynamic *pass1-fun-env* nil)
 (defdynamic *pass1-tag-env* nil)
+(defdynamic *pass1-name-env* nil)
 
 (defun make-var (sym)
   (let ((gsym (gensym)))
@@ -395,6 +396,40 @@
      (pass1-tagbody x))
     ((GO)
      (pass1-go x))
+    ((BLOCK)
+     (check-arg-count x 1 -1)
+     (unless (symbolp (second x))
+       (type-error x (second x) '<symbol>))
+     (let ((name (make-var (second x))))
+       (make-ast 'BLOCK
+                 name
+                 (dynamic-let ((*pass1-name-env*
+                                (cons (list (second x) name)
+                                      (dynamic *pass1-name-env*))))
+                              (pass1-progn (cddr x))))))
+    ((RETURN-FROM)
+     (check-arg-count x 2 2)
+     (unless (symbolp (second x))
+       (type-error x (second x) '<symbol>))
+     (let ((res (env-get (dynamic *pass1-name-env*) (second x))))
+       (if res
+           (make-ast 'RETURN-FROM res (pass1 (third x)))
+         (syntax-error "Block Tag not found: ~A" (second x)))))
+    ((CATCH)
+     (check-arg-count x 1 -1)
+     (make-ast 'CATCH
+               (pass1 (cadr x))
+               (pass1-progn (cddr x))))
+    ((THROW)
+     (check-arg-count x 2 2)
+     (make-ast 'THROW
+               (pass1 (second x))
+               (pass1 (third x))))
+    ((UNWIND-PROTECT)
+     (check-arg-count x 1 -1)
+     (make-ast 'UNWIND-PROTECT
+               (pass1 (cadr x))
+               (pass1-progn (cddr x))))
     (t
      (cond
       ((lambda-form-p (car x))
@@ -545,6 +580,16 @@
      (codegen-tagbody ctx (ast-arg1 x) (ast-arg2 x) env))
     ((GO)
      (codegen-go ctx (ast-arg1 x) env))
+    ((BLOCK)
+     (codegen-block ctx (ast-arg1 x) (ast-arg2 x) env))
+    ((RETURN-FROM)
+     (codegen-return-from ctx (ast-arg1 x) (ast-arg2 x) env))
+    ((CATCH)
+     (codegen-catch ctx (ast-arg1 x) (ast-arg2 x) env))
+    ((THROW)
+     (codegen-throw ctx (ast-arg1 x) (ast-arg2 x) env))
+    ((UNWIND-PROTECT)
+     (codegen-unwind-protect ctx (ast-arg1 x) (ast-arg2 x) env))
     ((LCALL)
      (codegen-call ctx (ast-arg1 x) (ast-arg2 x) env t))
     ((CALL)
@@ -745,6 +790,51 @@
           (t
            (set-property t tag 'longjmp-p)
            (gen 'LONG-JUMP tag)))))
+
+(defun codegen-block (ctx name body env)
+  (let* ((label (gen-uniq "NAME_"))
+         (code
+          (codegen ctx
+                   body
+                   (append (cons name label)
+                           env))))
+    (cond ((property name 'longjmp-p)
+           (set-property 1 name 'longjmp-value)
+           (genseq (gen 'BLOCK-BEGIN name)
+                   code
+                   (gn 'BLOCK-END name)))
+          ((property name 'block-name-used-p)
+           (genseq code
+                   (gen 'LABEL label)))
+          (t
+           code))))
+
+(defun codegen-return-from (ctx name body env)
+  (let ((res (env-get env name)))
+    (cond (res
+           (set-property t name 'block-name-used-p)
+           (genseq (codegen ctx body env)
+                   (gen 'JUMP res)))
+          (t
+           (set-property t name 'longjmp-p)
+           (gen 'LONG-JUMP name)))))
+
+(defun codegen-catch (ctx tag-form body env)
+  (genseq (codegen ctx tag-form env)
+          (gen 'CATCH-BEGIN)
+          (codegen ctx body env)
+          (gen 'CATCH-END)))
+
+(defun codegen-throw (ctx tag-form body env)
+  (genseq (codegen ctx body env)
+          (codegen ctx tag-form env)
+          (gen 'THROW)))
+
+(defun codegen-unwind-protect (ctx body cleanup-form env)
+  (let ((function (codegen-lambda-internal ctx (list nil nil nil) cleanup-form env)))
+    (genseq (gen 'UNWIND-BEGIN function)
+            (codegen ctx body env)
+            (gen 'UNWIND-END function))))
 
 (defun codegen-call (ctx func args env local)
   (let ((code nil)
@@ -1030,6 +1120,20 @@
      (cc-tagbody-end ctx instr))
     ((LONG-JUMP)
      (cc-longjmp ctx instr))
+    ((BLCOK-BEGIN)
+     )
+    ((BLOCK-END)
+     )
+    ((CATCH-BEGIN)
+     )
+    ((CATCH-END)
+     )
+    ((THROW)
+     )
+    ((UNWIND-BEGIN)
+     )
+    ((UNWIND-END)
+     )
     ((BEGIN)
      (cc-format 1 "{")
      (incf (dynamic *cc-indent-offset*)))
