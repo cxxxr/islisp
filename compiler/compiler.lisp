@@ -261,16 +261,17 @@
 (defun pass1-tagbody (x)
   (let* ((tags (remove-if-not #'symbolp (cdr x)))
          (gtags (mapcar (lambda (tag) (make-var tag)) tags))
-         (env1 (mapcar #'cons tags gtags)))
+         (env1 (mapcar #'cons tags gtags))
+         (used-tags nil))
     (dynamic-let ((*pass1-tag-env*
                    (append env1 (dynamic *pass1-tag-env*))))
                  (make-ast 'TAGBODY
                            gtags
                            (mapcar (lambda (form)
                                      (cond ((symbolp form)
-                                            (if (property form 'tag-used-p)
+                                            (if (member form used-tags)
                                                 (syntax-error "duplicated tag: ~A in ~A" form x)
-                                                (set-property t form 'tag-used-p))
+                                              (push form used-tags))
                                             (env-get env1 form))
                                            (t
                                             (pass1 form))))
@@ -727,12 +728,12 @@
       (let ((n 0)
             (longtags nil))
         (dolist (tag tags)
-          (when (property tag 'long-jump-p)
-            (set-property (incf n) tag 'go-number)
+          (when (property tag 'longjmp-p)
+            (set-property (incf n) tag 'longjmp-value)
             (push tag longtags)))
         (setq longtags (nreverse longtags))
         (if longtags
-            (genseq (gen 'TAGBODY-START longtags)
+            (genseq (gen 'TAGBODY-BEGIN longtags)
                     code
                     (gen 'TAGBODY-END longtags))
           code)))))
@@ -742,7 +743,7 @@
     (cond (res
            (gen 'JUMP res))
           (t
-           (set-property t tag 'long-jump-p)
+           (set-property t tag 'longjmp-p)
            (gen 'LONG-JUMP tag)))))
 
 (defun codegen-call (ctx func args env local)
@@ -907,7 +908,7 @@
   (dolist (instr code)
     (cc-instr ctx instr)))
 
-(defun cc-tagbody-start (ctx instr)
+(defun cc-tagbody-begin (ctx instr)
   (cc-format 1 "{")
   (let ((tags (instr-arg1 instr))
         (tag-array-var (gen-uniq ctx "tag_array_"))
@@ -931,9 +932,9 @@
   (cc-format 1 "}"))
 
 (defun cc-longjmp (ctx instr)
-  (cc-format 1 "longjmp(~A, ~A);"
+  (cc-format 1 "is_longjmp(~A, ~A);"
              (property (instr-arg1 instr) 'jmpbuf)
-             (property (instr-arg1 instr) 'go-number)))
+             (property (instr-arg1 instr) 'longjmp-value)))
 
 (defun cc-instr (ctx instr)
   (case (instr-op instr)
@@ -1023,8 +1024,8 @@
      (cc-format 1 "goto ~A;" (instr-arg1 instr)))
     ((LABEL)
      (cc-format 0 "~A:;" (instr-arg1 instr)))
-    ((TAGBODY-START)
-     (cc-tagbody-start ctx instr))
+    ((TAGBODY-BEGIN)
+     (cc-tagbody-begin ctx instr))
     ((TAGBODY-END)
      (cc-tagbody-end ctx instr))
     ((LONG-JUMP)
