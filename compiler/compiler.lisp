@@ -882,7 +882,7 @@
 (defun codegen-unwind-protect (ctx body cleanup-form env)
   (let ((function (codegen-lambda-internal ctx (list nil nil nil) cleanup-form env)))
     (genseq (gen 'UNWIND-BEGIN function)
-            (codegen ctx body env)
+            (codegen ctx body nil)
             (gen 'UNWIND-END function))))
 
 (defun codegen-call (ctx func args env local)
