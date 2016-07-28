@@ -411,7 +411,7 @@
        (make-ast 'BLOCK
                  name
                  (dynamic-let ((*pass1-name-env*
-                                (cons (list (second x) name)
+                                (cons (cons (second x) name)
                                       (dynamic *pass1-name-env*))))
                               (pass1-progn (cddr x))))))
     ((RETURN-FROM)
@@ -441,7 +441,7 @@
      (check-arg-count x 2 2)
      (unless (symbolp (second x))
        (type-error x (second x) '<symbol>))
-     (make-ast 'DYNAMIC-SET
+     (make-ast 'DYNAMIC-PUSH
                (second x)
                (pass1 (third x))))
     ((DYNAMIC)
@@ -630,6 +630,9 @@
     ((DYNAMIC-SET)
      (genseq (codegen ctx (ast-arg2 x) env)
              (gen 'DYNAMIC-SET (ast-arg1 x))))
+    ((DYNAMIC-PUSH)
+     (genseq (codegen ctx (ast-arg2 x) env)
+             (gen 'DYNAMIC-PUSH (ast-arg1 x))))
     ((DYNAMIC-LET)
      (genseq (mapcan (lambda (b)
                        (genseq (codegen ctx (second b) env)
@@ -839,12 +842,12 @@
            (gen 'GO tag)))))
 
 (defun codegen-block (ctx name body env)
-  (let* ((label (gen-uniq "NAME_"))
+  (let* ((label (gen-uniq ctx "NAME_"))
          (code
           (codegen ctx
                    body
-                   (append (cons name label)
-                           env))))
+                   (cons (cons name label)
+                         env))))
     (cond ((property name 'longjmp-p)
            (genseq (gen 'BLOCK-BEGIN name)
                    code
@@ -1012,10 +1015,11 @@
 		      (cc-format 1 "~A = is_make_float(~A);" var value)
 		      var)
 		     ((stringp value)
-                      (string-append var
-                                     " = is_make_string(\""
-                                     value
-                                     "\");")
+                      (cc-format 1
+                                 (string-append var
+                                                " = is_make_string(\""
+                                                value
+                                                "\");"))
 		      var)
                      ((characterp value)
                       (cc-format 1 "~A = is_make_character(~D);" var (convert value <integer>))
@@ -1235,7 +1239,7 @@
   (cc-format 1 "return;"))
 
 (define-instruction DYNAMIC (ctx symbol)
-  (cc-format 1 "is_dynamic(~A);"
+  (cc-format 1 "is_stack_push(is_dynamic_get(~A));"
              (cc-add-const ctx symbol)))
 
 (define-instruction DYNAMIC-SET (ctx symbol)
@@ -1289,6 +1293,9 @@
                    "../lisp/control.lsp"
                    "../lisp/list.lsp"
                    "../lisp/number.lsp"
-                   "../lisp/read.lsp"))
+                   "../lisp/read.lsp"
+                   "../lisp/eval.lsp"
+                   "../lisp/lisp.lsp"
+                   ))
 
 (make)

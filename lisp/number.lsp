@@ -16,7 +16,7 @@
       (while (< i length)
         (let ((c (is:string-ref string i)))
           (cond ((and (char<= #\0 c) (char<= c #\9))
-                 (setq numberp nil)
+                 (setq numberp t)
                  (setq number
                        (+ (- (is:convert-char-to-integer c)
                              (is:convert-char-to-integer #\0))

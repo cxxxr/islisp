@@ -114,14 +114,12 @@ typedef struct {
 	IS_OBJECT_HEADER;
 	ISObject name;
 	ISObject global;
-	ISObject dynamic;
 	ISObject property;
 	ISObject function;
 } ISSymbol;
 
 #define IS_SYMBOL_NAME(obj) (((ISSymbol*)obj)->name)
 #define IS_SYMBOL_GLOBAL(obj) (((ISSymbol*)obj)->global)
-#define IS_SYMBOL_DYNAMIC(obj) (((ISSymbol*)obj)->dynamic)
 #define IS_SYMBOL_PROPERTY(obj) (((ISSymbol*)obj)->property)
 #define IS_SYMBOL_FUNCTION(obj) (((ISSymbol*)obj)->function)
 
@@ -217,6 +215,7 @@ ISObject is_symbol_global(ISObject);
 void is_symbol_set_global(ISObject, ISObject);
 ISObject is_gensym(void);
 void is_gensym_f(int);
+void is_symbolp_f(int);
 void is_eql_f(int);
 void is_add_builtin_function(const char *, ISFuncPtr, int, int);
 void is_symbol_init(void);
@@ -311,6 +310,13 @@ ISObject is_make_vector(int, ISObject *);
 void is_env_init(void);
 void is_env_extend(int, ...);
 ISObject *is_env_get(int i);
+
+// dynamic.c
+void is_dynamic_init(void);
+ISObject is_dynamic_get(ISObject);
+void is_dynamic_set(ISObject, ISObject);
+void is_dynamic_push(ISObject, ISObject);
+void is_dynamic_pop(int);
 
 // call.c
 void is_call_stack_print(void);

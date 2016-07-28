@@ -1,4 +1,3 @@
-
 (defmacro cond (&rest clauses)
   (if (null clauses)
       nil
@@ -61,3 +60,10 @@
             (go ,gstart-tag)
             ,gend-tag)
            ,gvalue)))))
+
+(defmacro let* (bindings &rest body)
+  (if (null bindings)
+      body
+    `(let (,(car bindings))
+       (let* ,(cdr bindings)
+         ,@body))))
