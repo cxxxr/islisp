@@ -64,11 +64,12 @@ enum ISType {
 
 #define IS_FLOAT_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_FLOAT_TYPE)
 #define IS_CONS_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_CONS_TYPE)
+#define IS_LIST_P(obj) (((obj) == is_nil) || IS_CONS_P(obj))
 #define IS_SYMBOL_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_SYMBOL_TYPE)
 #define IS_STRING_P(obj) (IS_POINTER_P(obj) && IS_HEAP_OBJECT_TYPE(obj) == IS_STRING_TYPE)
 #define IS_FUNCTION_P(obj) (IS_POINTER_P(obj) && \
 				(IS_HEAP_OBJECT_TYPE(obj) == IS_USER_FUNCTION_TYPE || \
-				 IS_HEAP_OBJECT_TYPE(obj) == IS_BUILTIN_FUNCTION_TYPE \
+				 IS_HEAP_OBJECT_TYPE(obj) == IS_BUILTIN_FUNCTION_TYPE || \
 				 IS_HEAP_OBJECT_TYPE(obj) == IS_CLOSURE_TYPE))
 #define IS_INPUT_STREAM_P(obj) \
 	(IS_POINTER_P(obj) && \
@@ -217,6 +218,8 @@ ISObject is_gensym(void);
 void is_gensym_f(int);
 void is_symbolp_f(int);
 void is_eql_f(int);
+void is_property_f(int);
+void is_symbol_function_f(int);
 void is_add_builtin_function(const char *, ISFuncPtr, int, int);
 void is_symbol_init(void);
 
@@ -323,6 +326,7 @@ void is_dynamic_pop(int);
 void is_call_stack_print(void);
 void is_call(ISObject, int);
 void is_funcall_f(int);
+void is_apply_f(int);
 void is_call_init(void);
 
 // print.c

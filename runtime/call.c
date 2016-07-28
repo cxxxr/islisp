@@ -68,10 +68,29 @@ void is_funcall_f(int argc)
 	is_stack_nip(1);
 }
 
+void is_apply_f(int argc)
+{
+	ISObject func = is_stack_peek(argc);
+	ISObject list = is_stack_pop();
+	if (!IS_FUNCTION_P(func))
+		is_type_error(func, IS_FUNCTION_TYPE);
+	if (!IS_LIST_P(list))
+		is_type_error(list, IS_LIST_TYPE);
+
+	int len = 0;
+	for (ISObject rest = list; rest != is_nil; rest = IS_CONS_CDR(rest)) {
+		is_stack_push(IS_CONS_CAR(rest));
+		len++;
+	}
+
+	call(func, argc-2+len);
+}
+
 void is_call_init(void)
 {
 	call_sp = 0;
 	call_stack_resize(100);
 
 	is_add_builtin_function("FUNCALL", is_funcall_f, 1, -1);
+	is_add_builtin_function("APPLY", is_apply_f, 2, -1);
 }

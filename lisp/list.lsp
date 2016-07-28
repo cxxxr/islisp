@@ -20,3 +20,17 @@
               ((null rest) nil)
               (if (eql key (car (car rest)))
                   (return-from nil rest)))))
+
+(defun mapcar (fn list)
+  (let ((newlist nil))
+    (for ((rest list (cdr rest)))
+         ((null rest)
+          (nreverse newlist))
+         (setq newlist
+               (cons (funcall fn (car rest))
+                     newlist)))))
+
+(defun list (&rest list) list)
+
+(defun first (x) (car x))
+(defun second (x) (car (cdr x)))

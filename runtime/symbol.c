@@ -94,6 +94,46 @@ void is_eql_f(int IS_UNUSED(argc))
 	is_stack_drop_push(2, is_bool_to_object(is_stack_peek(1) == is_stack_peek(2)));
 }
 
+void is_property_f(int argc)
+{
+	ISObject symbol;
+	ISObject propname;
+	ISObject default_;
+
+	if (argc == 2) {
+		symbol = is_stack_peek(2);
+		propname = is_stack_peek(1);
+		default_ = is_nil;
+	} else {
+		symbol = is_stack_peek(3);
+		propname = is_stack_peek(2);
+		default_ = is_stack_peek(1);
+	}
+
+	if (!IS_SYMBOL_P(symbol))
+		is_type_error(symbol, IS_SYMBOL_TYPE);
+
+	for (ISObject plist = IS_SYMBOL_PROPERTY(symbol);
+	     plist != is_nil;
+	     plist = IS_CONS_CDR(IS_CONS_CDR(plist))) {
+		if (IS_CONS_CAR(plist) == propname) {
+			is_stack_drop_push(argc, IS_CONS_CAR(IS_CONS_CDR(plist)));
+			return;
+		}
+		plist = IS_CONS_CDR(IS_CONS_CDR(plist));
+	}
+
+	is_stack_drop_push(argc, default_);
+}
+
+void is_symbol_function_f(int IS_UNUSED(argc))
+{
+	ISObject symbol = is_stack_peek(1);
+	if (!IS_SYMBOL_P(symbol))
+		is_type_error(symbol, IS_SYMBOL_TYPE);
+	is_stack_change_tos(IS_SYMBOL_FUNCTION(symbol));
+}
+
 void is_add_builtin_function(const char *name, ISFuncPtr ptr, int min, int max)
 {
 	ISObject string = is_make_string(name);
@@ -120,4 +160,6 @@ void is_symbol_init(void)
 	is_add_builtin_function("SYMBOLP", is_symbolp_f, 1, 1);
 	is_add_builtin_function("EQ", is_eql_f, 2, 2);
 	is_add_builtin_function("EQL", is_eql_f, 2, 2);
+	is_add_builtin_function("PROPERTY", is_property_f, 2, 3);
+	is_add_builtin_function("IS:SYMBOL-FUNCTION", is_symbol_function_f, 1, 1);
 }
