@@ -1,5 +1,10 @@
 #include "lisp.h"
 
+void is_consp_f(int IS_UNUSED(argc))
+{
+	is_stack_change_tos(is_bool_to_object(IS_CONS_P(is_stack_peek(1))));
+}
+
 void is_cons_f(int IS_UNUSED(argc))
 {
 	is_stack_drop_push(2,
@@ -77,6 +82,7 @@ void is_nreverse_f(int IS_UNUSED(argc))
 
 void is_cons_init(void)
 {
+	is_add_builtin_function("CONSP", is_consp_f, 1, 1);
 	is_add_builtin_function("CONS", is_cons_f, 2, 2);
 	is_add_builtin_function("CAR", is_car_f, 1, 1);
 	is_add_builtin_function("CDR", is_cdr_f, 1, 1);

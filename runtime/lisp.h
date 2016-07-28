@@ -254,6 +254,7 @@ void is_ge_number_f(int);
 void is_number_init(void);
 
 // cons.c
+void is_consp_f(int);
 void is_cons_f(int);
 void is_car_f(int);
 void is_cdr_f(int);
