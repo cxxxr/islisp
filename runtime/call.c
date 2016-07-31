@@ -84,6 +84,7 @@ void is_apply_f(int argc)
 	}
 
 	call(func, argc-2+len);
+	is_stack_nip(1);
 }
 
 void is_call_init(void)
