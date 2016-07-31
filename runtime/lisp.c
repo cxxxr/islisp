@@ -6,9 +6,9 @@ void is_init(void)
 {
 	is_gc_disable();
 	is_heap_init();
-	is_stack_init();
 	is_shelter_init();
 	is_symbol_init();
+	is_stack_init();
 	is_dynamic_init();
 	is_character_init();
 	is_number_init();

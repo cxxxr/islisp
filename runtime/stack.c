@@ -5,22 +5,25 @@ void is_stack_init(void)
 {
 	is_stack_low = is_stack_top = &is_stack[0];
 	is_stack_high = is_stack_top + IS_STACK_SIZE;
+	is_add_builtin_function("IS:STACK-PRINT", is_stack_print_f, 0, 0);
 }
 
 void is_stack_push(ISObject x)
 {
 	if (is_stack_top >= is_stack_high)
 		is_stackoverflow();
-	*(is_stack_top++) = (x);
+	*(is_stack_top++) = x;
 }
 
 ISObject *is_stack_pop_ptr(void)
 {
+	assert(is_stack_top > is_stack_low);
 	return --is_stack_top;
 }
 
 ISObject is_stack_pop(void)
 {
+	assert(is_stack_top > is_stack_low);
 	return *(--is_stack_top);
 }
 
@@ -44,7 +47,7 @@ void is_stack_nip(int n)
 
 bool is_stack_top_null(void)
 {
-	return *(--is_stack_top) == is_nil;
+	return is_stack_pop() == is_nil;
 }
 
 void is_stack_drop(int n)
@@ -92,18 +95,33 @@ void is_stack_build_list(int n)
 	is_stack_drop_push(drop_n, head);
 }
 
-void is_stack_print(int n)
+void is_stack_print(void)
 {
-	int i;
-	if (n < 0) {
-		for (i = 1; (is_stack_top - i) != is_stack_low; i++) {
-			is_print(*(is_stack_top - i), stdout);
-			puts("");
-		}
-	} else {
-		for (i = 1; i <= n; i++) {
-			is_print(*(is_stack_top - i), stdout);
-			puts("");
-		}
+	puts("\n*** DUMP STACK ***");
+
+	if (is_stack_top < is_stack_low) {
+		fputs("stack error\n", stderr);
+		abort();
 	}
+
+	int i;
+	ISObject *p;
+	for (p = is_stack_top - 1, i = 1; p >= is_stack_low; p--, i++) {
+		fprintf(stdout, "%d: ", i);
+		is_print(*p, stdout);
+		puts("");
+	}
+
+	puts("*** DUMP STACK END ***");
+}
+
+void is_stack_print_f(int IS_UNUSED(argc))
+{
+	is_stack_print();
+	is_stack_push(is_make_integer(is_stack_get_sp()));
+}
+
+int is_stack_get_sp(void)
+{
+	return (is_stack_top - is_stack_low) / sizeof(ISObject);
 }

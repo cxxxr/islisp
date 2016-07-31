@@ -20,6 +20,8 @@ void is_stack_drop(int);
 void is_stack_drop_push(int, ISObject);
 void is_stack_change_tos(ISObject);
 void is_stack_build_list(int);
-void is_stack_print(int);
+void is_stack_print(void);
+void is_stack_print_f(int);
+int is_stack_get_sp(void);
 
 #endif

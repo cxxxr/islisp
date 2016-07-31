@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <assert.h>
 
 #ifdef _IS_MAIN_
 #define EXTERN
