@@ -219,6 +219,7 @@ void is_gensym_f(int);
 void is_symbolp_f(int);
 void is_eql_f(int);
 void is_property_f(int);
+void is_set_property_f(int);
 void is_symbol_function_f(int);
 void is_add_builtin_function(const char *, ISFuncPtr, int, int);
 void is_symbol_init(void);

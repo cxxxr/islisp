@@ -126,6 +126,35 @@ void is_property_f(int argc)
 	is_stack_drop_push(argc, default_);
 }
 
+void is_set_property_f(int IS_UNUSED(argc))
+{
+	ISObject *value = is_stack_peek_ptr(3);
+	ISObject *symbol = is_stack_peek_ptr(2);
+	ISObject *propname = is_stack_peek_ptr(1);
+
+	if (!IS_SYMBOL_P(*symbol))
+		is_type_error(*symbol, IS_SYMBOL_TYPE);
+
+	for (ISObject plist = IS_SYMBOL_PROPERTY(*symbol);
+	     plist != is_nil;
+	     plist = IS_CONS_CDR(IS_CONS_CDR(plist))) {
+		if (IS_CONS_CAR(plist) == *propname) {
+			is_set_car(*value, IS_CONS_CDR(plist));
+			goto END;
+		}
+		plist = IS_CONS_CDR(IS_CONS_CDR(plist));
+	}
+
+	ISObject tmp = is_make_cons(value, &IS_SYMBOL_PROPERTY(*symbol));
+	int shidx = is_shelter_add(&tmp);
+	// write barrior
+	IS_SYMBOL_PROPERTY(*symbol) = is_make_cons(propname, &tmp);
+	is_shelter_set_index(shidx);
+
+ END:
+	is_stack_drop_push(3, *value);
+}
+
 void is_symbol_function_f(int IS_UNUSED(argc))
 {
 	ISObject symbol = is_stack_peek(1);
@@ -161,5 +190,6 @@ void is_symbol_init(void)
 	is_add_builtin_function("EQ", is_eql_f, 2, 2);
 	is_add_builtin_function("EQL", is_eql_f, 2, 2);
 	is_add_builtin_function("PROPERTY", is_property_f, 2, 3);
+	is_add_builtin_function("SET-PROPERTY", is_set_property_f, 3, 3);
 	is_add_builtin_function("IS:SYMBOL-FUNCTION", is_symbol_function_f, 1, 1);
 }
