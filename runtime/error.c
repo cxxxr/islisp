@@ -19,6 +19,8 @@ void is_error(const char *msg, ...)
 
 	is_call_stack_print();
 
+	is_stack_print();
+
 	abort();
 }
 
