@@ -289,13 +289,13 @@
         (syntax-error "Go Tag not found: ~A" tag)))))
 
 (defun pass1-labels (form definitions body flet-or-labels)
-  (let ((fun-env1 nil))
-    (dolist (def definitions)
-      (check-arg-count def 2 -1)
-      (unless (symbolp (car def))
-        (type-error form (car def) '<symbol>))
-      (push (cons (car def) (make-var (car def)))
-            fun-env1))
+  (let ((fun-env1
+         (mapcar (lambda (def)
+                   (check-arg-count def 2 -1)
+                   (unless (symbolp (car def))
+                     (type-error form (car def) '<symbol>))
+                   (cons (car def) (make-var (car def))))
+                 definitions)))
     (let ((env (append fun-env1 (dynamic *pass1-fun-env*))))
       (make-ast flet-or-labels
                 (mapcar #'cdr fun-env1)
@@ -678,11 +678,12 @@
                         bindings)
                 (codegen-extend-env env1)
                 (mapcan (lambda (e)
+                          (decf peek-offset)
                           (cond ((property (car e) 'heap-p)
                                  (gen 'HEAP-VAR (cdr e) (car e)))
                                 (t
                                  (incf stack-push-count)
-                                 (gen 'LOCAL-VAR (cdr e) (+ 1 (decf peek-offset))))))
+                                 (gen 'LOCAL-VAR (cdr e) (+ 1 peek-offset)))))
                         env1)
                 body-code
                 (gen 'NIP stack-push-count)
@@ -700,7 +701,8 @@
                              v)
                       (gen 'LOCAL-VAR
                            (env-get env1 v)
-                           (+ 1 (decf peek-offset)))))))
+                           peek-offset))))
+      (decf peek-offset))
     code))
 
 (defun revert-lambda-list (lambda-list)
@@ -774,10 +776,12 @@
 (defun codegen-labels (ctx fnames definitions body env)
   (let ((functions
          (mapcar (lambda (def)
-                   (codegen-lambda-internal ctx
-                                            (second def)
-                                            (third def)
-                                            env))
+                   (let ((function (codegen-lambda-internal ctx
+                                                            (second def)
+                                                            (third def)
+                                                            env)))
+                     ;;(setf (is-function-name function) (property (first def) 'name))
+                     function))
                  definitions)))
     (mapc (lambda (fname function)
             (set-property function fname 'function))
@@ -1280,12 +1284,20 @@
                              (format out "~A~%" (cc-top ctx code))))
     t))
 
+;; (defun is-compile (x)
+;;   (let* ((ctx (create (class context)))
+;;          (code (codegen ctx (pass1 x) nil)))
+;;     (print-code code)
+;;     (print-context ctx)
+;;     (format (standard-output) "~A" (cc-top ctx code))
+;;     t))
+
 (defun is-compile (x)
   (let* ((ctx (create (class context)))
          (code (codegen ctx (pass1 x) nil)))
     (print-code code)
     (print-context ctx)
-    (format (standard-output) "~A" (cc-top ctx code))
+    (format (standard-output) "~A~%" (cc-top ctx code))
     t))
 
 (defun make ()
