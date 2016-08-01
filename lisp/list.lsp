@@ -19,7 +19,7 @@
     (for ((rest alist (cdr rest)))
          ((null rest) nil)
       (if (eql key (car (car rest)))
-          (return-from nil rest)))))
+          (return-from nil (car rest))))))
 
 (defun is:mapcar* (fn list)
   (let ((newlist nil))
@@ -53,6 +53,15 @@
           (car args)
           (cons (car args)
                 (list* (cdr args))))))
+
+(defun append (&rest lists)
+  (let ((new-list nil))
+    (for ((rest lists (cdr rest)))
+         ((null rest))
+      (for ((rest2 (car rest) (cdr rest2)))
+           ((null rest2))
+        (setq new-list (cons (car rest2) new-list))))
+    (nreverse new-list)))
 
 (defun first (x) (car x))
 (defun second (x) (car (cdr x)))
