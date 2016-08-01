@@ -819,9 +819,9 @@
                      env)))
     (let ((code (genseq (mapcan (lambda (form)
                                   (if (symbolp form)
-                                      (gen 'LABEL (env-get env form))
-                                    (genseq (codegen ctx form env)
-                                            (gen 'POP))))
+                                      (gen 'TAG (env-get env form))
+                                      (genseq (codegen ctx form env)
+                                              (gen 'POP))))
                                 forms)
                         (gen 'CONST nil))))
       (let ((n 0)
@@ -831,11 +831,7 @@
             (set-property (incf n) tag 'longjmp-value)
             (push tag longtags)))
         (setq longtags (nreverse longtags))
-        (if longtags
-            (genseq (gen 'TAGBODY-BEGIN longtags)
-                    code
-                    (gen 'TAGBODY-END longtags))
-          code)))))
+        (gen 'TAGBODY longtags code)))))
 
 (defun codegen-go (ctx tag env)
   (let ((res (env-get env tag)))
@@ -852,31 +848,25 @@
                    body
                    (cons (cons name label)
                          env))))
-    (cond ((property name 'longjmp-p)
-           (genseq (gen 'BLOCK-BEGIN name)
-                   code
-                   (gn 'BLOCK-END name)))
-          ((property name 'block-name-used-p)
-           (genseq code
-                   (gen 'LABEL label)))
-          (t
-           code))))
+    (if (or (property name 'longjmp-p)
+            (property name 'block-name-used))
+        (gen 'BLOCK name code)
+        code)))
 
 (defun codegen-return-from (ctx name body env)
   (let ((res (env-get env name)))
     (cond (res
-           (set-property t name 'block-name-used-p)
+           (set-property res name 'block-name-used)
            (genseq (codegen ctx body env)
                    (gen 'JUMP res)))
           (t
            (set-property t name 'longjmp-p)
-           (gen 'RETURN-FROM name)))))
+           (genseq (codegen ctx body env)
+                   (gen 'RETURN-FROM name))))))
 
 (defun codegen-catch (ctx tag-form body env)
   (genseq (codegen ctx tag-form env)
-          (gen 'CATCH-BEGIN)
-          (codegen ctx body env)
-          (gen 'CATCH-END)))
+          (gen 'CATCH (codegen ctx body env))))
 
 (defun codegen-throw (ctx tag-form body env)
   (genseq (codegen ctx body env)
@@ -885,9 +875,7 @@
 
 (defun codegen-unwind-protect (ctx body cleanup-form env)
   (let ((function (codegen-lambda-internal ctx (list nil nil nil) cleanup-form env)))
-    (genseq (gen 'UNWIND-BEGIN function)
-            (codegen ctx body nil)
-            (gen 'UNWIND-END function))))
+    (gen 'UNWIND-PROTECT (codegen ctx body nil) function)))
 
 (defun codegen-call (ctx func args env local)
   (let ((code nil)
@@ -917,7 +905,9 @@
 (defdynamic *cc-indent-offset* 0)
 
 (defun cc-format (indent string &rest args)
-  (format (dynamic *cc-stream*) (create-string (+ indent (dynamic *cc-indent-offset*)) (convert 9 <character>)))
+  (format (dynamic *cc-stream*)
+          (create-string (+ indent (dynamic *cc-indent-offset*))
+                         (convert 9 <character>)))
   (apply #'format (dynamic *cc-stream*) string args)
   (format (dynamic *cc-stream*) "~%"))
 
@@ -1170,27 +1160,38 @@
 (define-instruction LABEL (ctx arg1)
   (cc-format 0 "~A:;" arg1))
 
-(define-instruction TAGBODY-BEGIN (ctx tags)
-  (cc-format 1 "{")
-  (let ((tag-array-var (gen-uniq ctx "tag_array_"))
-        (jmpbuf-var (gen-uniq ctx "jmpbuf_")))
-    (push jmpbuf-var (context-jmpbuf-vars ctx))
-    (dolist (tag tags) (set-property jmpbuf-var tag 'jmpbuf))
-    (cc-format 2 "void *~A[] = {~A};"
-               tag-array-var
-               (cc-list-to-string
-                (mapcar (lambda (tag)
-                          (property tag 'tag))
-                        tags)
-                "&&" ", "))
-    (let ((tmp-var (gen-uniq ctx "tmp_")))
-      (cc-format 2 "int ~A = is_setjmp(&~A);" tmp-var jmpbuf-var)
-      (cc-format 2 "if (~A != 0) goto *~A[~A-1];" tmp-var tag-array-var tmp-var))
-    (incf (dynamic *cc-indent-offset*))))
+(defdynamic *cc-spvar-stack* nil)
 
-(define-instruction TAGBODY-END (ctx tags)
-  (decf (dynamic *cc-indent-offset*))
+(define-instruction TAGBODY (ctx long-tags code)
+  (cc-format 1 "{")
+  (let ((sp-var (gen-uniq ctx "SP_")))
+    (dynamic-let ((*cc-indent-offset*
+                   (+ 1 (dynamic *cc-indent-offset*)))
+                  (*cc-spvar-stack*
+                   (cons sp-var (dynamic *cc-spvar-stack*))))
+      (cc-format 1 "IS_Stack_Pointer ~A = is_stack_get_pointer();" sp-var)
+      (when long-tags
+        (let ((tag-array-var (gen-uniq ctx "tag_array_"))
+              (jmpbuf-var (gen-uniq ctx "jmpbuf_")))
+          (push jmpbuf-var (context-jmpbuf-vars ctx))
+          (dolist (tag tags) (set-property jmpbuf-var tag 'jmpbuf))
+          (cc-format 1 "void *~A[] = {~A};"
+                     tag-array-var
+                     (cc-list-to-string
+                      (mapcar (lambda (tag)
+                                (property tag 'tag))
+                              tags)
+                      "&&" ", "))
+          (let ((tmp-var (gen-uniq ctx "tmp_")))
+            (cc-format 1 "int ~A = is_setjmp(&~A);" tmp-var jmpbuf-var)
+            (cc-format 1 "if (~A != 0) goto *~A[~A-1];" tmp-var tag-array-var tmp-var))))
+      (cc-code ctx code)))
   (cc-format 1 "}"))
+
+(define-instruction TAG (ctx tag)
+  (cc-format 0 "~A: is_stack_set_pointer(~A);"
+             tag
+             (car (dynamic *cc-spvar-stack*))))
 
 (define-instruction GO (ctx name)
   (let ((v (cc-add-const ctx (property name 'name))))
@@ -1199,15 +1200,39 @@
                (property name 'longjmp-value)
                v)))
 
-(define-instruction BLOCK-BEGIN (ctx name)
-  (cc-format 1 "{")
-  (let ((jmpbuf-var (gen-uniq ctx "jmpbuf_")))
-    (push jmpbuf-var (context-jmpbuf-vars ctx))
-    (cc-format 2 "if (is_setjmp(&~A) == 0) {" jmpbuf-var)
-    (incf (dynamic *cc-indent-offset*))))
+(defun cc-block-set-stack-pointer (ctx sp-var)
+  (let ((tosvar (gen-uniq ctx "TOS_")))
+    (cc-format 2 "{")
+    (cc-format 3 "ISObject ~A = is_stack_peek(1);" tosvar)
+    (cc-format 3 "is_stack_set_pointer(~A);" sp-var)
+    (cc-format 3 "is_stack_push(~A);" tosvar)
+    (cc-format 2 "}")))
 
-(define-instruction BLOCK-END (ctx name)
-  (decf (dynamic *cc-indent-offset*))
+(define-instruction BLOCK (ctx name code)
+  (cc-format 1 "{")
+  (let ((sp-var (gen-uniq ctx "SP_")))
+    (dynamic-let ((*cc-indent-offset*
+                   (+ 1 (dynamic *cc-indent-offset*)))
+                  (*cc-spvar-stack*
+                   (cons sp-var
+                         (dynamic *cc-spvar-stack*))))
+      (cc-format 1 "IS_Stack_Pointer ~A = is_stack_get_pointer();" sp-var)
+      (cond ((property name 'longjmp-p)
+             (let ((jmpbuf-var (gen-uniq ctx "jmpbuf_")))
+               (push jmpbuf-var (context-jmpbuf-vars ctx))
+               (cc-format 1 "if (is_setjmp(&~A) == 0) {" jmpbuf-var)
+               (dynamic-let ((*cc-indent-offset*
+                              (+ 1 (dynamic *cc-indent-offset*))))
+                 (cc-code ctx code))
+               (cc-format 1 "} else {")
+               (cc-block-set-stack-pointer ctx sp-var)
+               (cc-format 1 "}")))
+            ((property name 'block-name-used)
+             (dynamic-let ((*cc-indent-offset*
+                            (+ 1 (dynamic *cc-indent-offset*))))
+               (cc-code ctx code))
+             (cc-format 1 "~A:" (property name 'block-name-used))
+             (cc-block-set-stack-pointer ctx sp-var)))))
   (cc-format 1 "}"))
 
 (define-instruction RETURN-FROM (ctx name)
@@ -1216,19 +1241,17 @@
                (property name 'jmpbuf)
                v)))
 
-(define-instruction CATCH-BEGIN (ctx)
-  (cc-format 1 "is_catch_begin();"))
-
-(define-instruction CATCH-END (ctx)
+(define-instruction CATCH (ctx code)
+  (cc-format 1 "is_catch_begin();")
+  (cc-code ctx code)
   (cc-format 1 "is_catch_end();"))
 
 (define-instruction THROW (ctx)
   (cc-format 1 "is_throw();"))
 
-(define-instruction UNWIND-BEGIN (ctx function)
-  (cc-format 1 "is_unwind_begin(~A);" (is-function-label function)))
-
-(define-instruction UNWIND-END (ctx function)
+(define-instruction UNWIND-PROTECT (ctx code cleanup-function)
+  (cc-format 1 "is_unwind_begin(~A);" (is-function-label function))
+  (cc-code ctx code)
   (cc-format 1 "is_unwind_end();"))
 
 (define-instruction BEGIN (ctx)
@@ -1272,16 +1295,16 @@
         (code nil))
     (dolist (filename filenames)
       (with-open-input-file (in filename)
-                            (for ((x (read in nil) (read in nil)))
-                                 ((null x))
-                                 (setq code
-                                       (genseq code
-                                               (codegen ctx (pass1 x) nil)
-                                               (gen 'POP))))))
+        (for ((x (read in nil) (read in nil)))
+             ((null x))
+          (setq code
+                (genseq code
+                        (codegen ctx (pass1 x) nil)
+                        (gen 'POP))))))
     (if (null *output-file*)
         (format (standard-output) "~A~%" (cc-top ctx code))
-      (with-open-output-file (out *output-file*)
-                             (format out "~A~%" (cc-top ctx code))))
+        (with-open-output-file (out *output-file*)
+          (format out "~A~%" (cc-top ctx code))))
     t))
 
 ;; (defun is-compile (x)

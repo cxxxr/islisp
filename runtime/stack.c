@@ -8,6 +8,16 @@ void is_stack_init(void)
 	is_add_builtin_function("IS:STACK-PRINT", is_stack_print_f, 0, 0);
 }
 
+IS_Stack_Pointer is_stack_get_pointer(void)
+{
+	return is_stack_top;
+}
+
+void is_stack_set_pointer(IS_Stack_Pointer stack_pointer)
+{
+	is_stack_top = stack_pointer;
+}
+
 void is_stack_push(ISObject x)
 {
 	if (is_stack_top >= is_stack_high)
@@ -118,10 +128,5 @@ void is_stack_print(void)
 void is_stack_print_f(int IS_UNUSED(argc))
 {
 	is_stack_print();
-	is_stack_push(is_make_integer(is_stack_get_sp()));
-}
-
-int is_stack_get_sp(void)
-{
-	return (is_stack_top - is_stack_low) / sizeof(ISObject);
+	is_stack_push(is_nil);
 }
