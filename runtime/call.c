@@ -26,6 +26,8 @@ static void call(ISObject v, int argc)
 		call_stack_resize(call_stack_size * 2);
 	call_stack[call_sp++] = &v;
 
+	IS_Stack_Pointer prev_sp = is_stack_get_pointer() - argc;
+
 	switch (IS_HEAP_OBJECT_TYPE(v)) {
 	case IS_BUILTIN_FUNCTION_TYPE:
 		if (!(IS_BUILTIN_FUNCTION_MIN(v) <= argc &&
@@ -49,6 +51,16 @@ static void call(ISObject v, int argc)
 	default:
 		is_type_error(v, IS_FUNCTION_TYPE);
 		break;
+	}
+
+	IS_Stack_Pointer sp = is_stack_get_pointer() - 1;
+
+	if (prev_sp != sp) {
+		puts("*******************");
+		printf("%d %d\n", prev_sp, sp);
+		is_println(v);
+		is_stack_print();
+		abort();
 	}
 
 	call_sp--;

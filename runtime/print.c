@@ -67,6 +67,7 @@ void is_print(ISObject obj, FILE *fp)
 			fputs(")", fp);
 			break;
 		default:
+			printf("unknown type: %d\n", IS_HEAP_OBJECT_TYPE(obj));
 			abort();
 		}
 	}

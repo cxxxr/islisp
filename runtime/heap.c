@@ -139,6 +139,8 @@ static void copy_gc(void)
 {
 	if (!gc_flag) return;
 
+	puts("### GC START");
+
 	ISObject *scan = to_space_start;
 	free_space = to_space_start;
 
@@ -171,6 +173,8 @@ static void copy_gc(void)
 	ISObject *tmp = from_space_start;
 	from_space_start = to_space_start;
 	to_space_start = tmp;
+
+	puts("### GC END");
 }
 
 static bool require_gc(size_t size)

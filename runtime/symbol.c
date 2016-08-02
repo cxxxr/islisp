@@ -56,6 +56,7 @@ ISObject is_symbol_function(ISObject obj)
 
 void is_symbol_set_function(ISObject symbol, ISObject function)
 {
+	// write barrior ???
 	IS_SYMBOL_FUNCTION(symbol) = function;
 }
 
