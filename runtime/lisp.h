@@ -196,6 +196,14 @@ extern ISObject is_symbol_t;
 extern ISObject is_symbol_nil;
 #define is_nil is_symbol_nil
 
+struct dynamic_stack_element {
+	ISObject symbol;
+	ISObject value;
+};
+
+extern struct dynamic_stack_element *is_dynamic_stack;
+extern int is_dynamic_sp;
+
 // error.c
 void is_error(const char *, ...);
 void is_argc_error(void);

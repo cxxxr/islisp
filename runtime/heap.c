@@ -148,6 +148,11 @@ static void copy_gc(void)
 		*p = copy(*p);
 	}
 
+	for (int i = 0; i < is_dynamic_sp; i++) {
+		is_dynamic_stack[i].symbol = copy(is_dynamic_stack[i].symbol);
+		is_dynamic_stack[i].value = copy(is_dynamic_stack[i].value);
+	}
+
 	while (scan < free_space) {
 		copy_obj_children((ISObject)scan);
 		size_t bytes = alignment(obj_size((ISObject)scan));
