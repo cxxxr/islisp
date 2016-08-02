@@ -4,6 +4,10 @@
 (defglobal eval:fun-tag (gensym))
 (defglobal eval:mac-tag (gensym))
 
+(defun error (msg &rest args)
+  (print (cons msg args))
+  err)
+
 (defun eval (x)
   (cond ((or (eq x t) (eq x nil))
          x)

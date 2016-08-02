@@ -21,6 +21,12 @@
       (if (eql key (car (car rest)))
           (return-from nil (car rest))))))
 
+(defun reverse (list)
+  (for ((rest list (cdr rest))
+        (acc nil))
+       ((null rest) acc)
+    (setq acc (cons (car rest) acc))))
+
 (defun is:mapcar* (fn list)
   (let ((newlist nil))
     (for ((rest list (cdr rest)))
