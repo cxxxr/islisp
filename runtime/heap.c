@@ -75,6 +75,11 @@ static bool from_space_p(ISObject obj)
 	return (ISObject)from_space_start <= obj && obj <= (ISObject)from_space_start + NEWSPACE_SIZE;
 }
 
+static bool to_space_p(ISObject obj)
+{
+	return (ISObject)to_space_start <= obj && obj <= (ISObject)to_space_start + NEWSPACE_SIZE;
+}
+
 static size_t alignment(size_t size)
 {
 	return (size + IS_OBJECT_MASK) & ~IS_OBJECT_MASK;
@@ -84,7 +89,7 @@ static ISObject copy(ISObject obj)
 {
 	if (!IS_POINTER_P(obj)) return obj;
 
-	if (from_space_p(IS_HEAP_OBJECT_FORWARDING(obj))) {
+	if (from_space_p(obj) && !to_space_p(IS_HEAP_OBJECT_FORWARDING(obj))) {
 		size_t size = alignment(obj_size(obj));
 		memcpy(free_space, IS_OBJECT_PTR(obj), size);
 		IS_HEAP_OBJECT_FORWARDING(obj) = (ISObject)free_space;
@@ -112,6 +117,9 @@ static void copy_obj_children(ISObject obj)
 				IS_SYMBOL_PROPERTY(obj) = copy(IS_SYMBOL_PROPERTY(obj));
 			if (!IS_NULL(IS_SYMBOL_FUNCTION(obj)))
 				IS_SYMBOL_FUNCTION(obj) = copy(IS_SYMBOL_FUNCTION(obj));
+			break;
+		case IS_USER_FUNCTION_TYPE:
+			IS_USER_FUNCTION_NAME(obj) = copy(IS_USER_FUNCTION_NAME(obj));
 			break;
 		case IS_CLOSURE_TYPE:
 			IS_CLOSURE_ENV(obj) = copy(IS_CLOSURE_ENV(obj));
