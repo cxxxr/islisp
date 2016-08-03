@@ -51,7 +51,9 @@ ISObject is_bool_to_object(bool b)
 
 ISObject is_symbol_function(ISObject obj)
 {
-	return IS_SYMBOL_FUNCTION(obj);
+	ISObject func = IS_SYMBOL_FUNCTION(obj);
+	if (IS_NULL(func)) is_undefined_function(obj);
+	return func;
 }
 
 void is_symbol_set_function(ISObject symbol, ISObject function)
@@ -161,7 +163,7 @@ void is_symbol_function_f(int IS_UNUSED(argc))
 	ISObject symbol = is_stack_peek(1);
 	if (!IS_SYMBOL_P(symbol))
 		is_type_error(symbol, IS_SYMBOL_TYPE);
-	is_stack_change_tos(IS_SYMBOL_FUNCTION(symbol));
+	is_stack_change_tos(is_symbol_function(symbol));
 }
 
 void is_add_builtin_function(const char *name, ISFuncPtr ptr, int min, int max)

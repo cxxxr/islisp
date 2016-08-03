@@ -158,6 +158,7 @@
 (defun read:read-binary (c1 c2 input-stream eos-error-p eos-value))
 (defun read:read-oct (c1 c2 input-stream eos-error-p eos-value))
 (defun read:read-hex (c1 c2 input-stream eos-error-p eos-value))
+(defun read:sharp-error (c1 c2 input-stream eos-error-p eos-value))
 
 (defun read:skip-ws (input-stream eos-error-p eos-value)
   (for ((c (read-char input-stream eos-error-p eos-value)
