@@ -206,7 +206,7 @@ extern int is_dynamic_sp;
 
 // error.c
 void is_error(const char *, ...);
-void is_argc_error(void);
+void is_argc_error(ISObject, int);
 void is_stackoverflow(void);
 void is_type_error(ISObject, enum ISType);
 void is_undefined_function(ISObject);

@@ -1094,9 +1094,9 @@
 
 (define-instruction ARGS (ctx min max default-code-list)
   (cond ((eql min max)
-         (cc-format 1 "if (argc != ~A) is_argc_error();" min))
+         (cc-format 1 "if (argc != ~A) is_argc_error(is_nil, argc);" min))
         ((null max)
-         (cc-format 1 "if (argc < ~A) is_argc_error();" min)
+         (cc-format 1 "if (argc < ~A) is_argc_error(is_nil, argc);" min)
          (cc-format 1 "is_stack_build_list(argc-~A);" min))
         (t
          (cc-format 1 "switch (argc) {")
@@ -1118,7 +1118,7 @@
                   (cc-format 2 "case ~A:" i)
                   (cc-format 3 "break;")
                   (cc-format 2 "default:")
-                  (cc-format 3 "is_argc_error();")))
+                  (cc-format 3 "is_argc_error(is_nil, argc);")))
            (cc-format 1 "}")))))
 
 (define-instruction EXTEND-ENV (ctx n peeks)

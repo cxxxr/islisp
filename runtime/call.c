@@ -33,7 +33,7 @@ static void call(ISObject v, int argc)
 		if (!(IS_BUILTIN_FUNCTION_MIN(v) <= argc &&
 		      (IS_BUILTIN_FUNCTION_MAX(v) == -1 ||
 		       argc <= IS_BUILTIN_FUNCTION_MAX(v))))
-			is_argc_error();
+			is_argc_error(v, argc);
 		IS_BUILTIN_FUNCTION_PTR(v) (argc);
 		break;
 	case IS_USER_FUNCTION_TYPE:

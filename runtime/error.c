@@ -24,9 +24,9 @@ void is_error(const char *msg, ...)
 	abort();
 }
 
-void is_argc_error(void)
+void is_argc_error(ISObject func, int argc)
 {
-	is_error("wrong Number of Arguments");
+	is_error("wrong Number of Arguments: % %", func, is_make_integer(argc));
 }
 
 void is_stackoverflow(void)
