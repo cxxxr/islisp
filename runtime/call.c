@@ -40,11 +40,11 @@ static void call(ISObject v, int argc)
 		IS_USER_FUNCTION_PTR(v) (argc);
 		break;
 	case IS_CLOSURE_TYPE:{
-			ISObject *last_env = &is_current_env;
-			int shidx = is_shelter_add(last_env);
+			ISObject last_env = is_current_env;
+			int shidx = is_shelter_add(&last_env);
 			is_current_env = IS_CLOSURE_ENV(v);
 			IS_CLOSURE_PTR(v) (argc);
-			is_current_env = *last_env;
+			is_current_env = last_env;
 			is_shelter_set_index(shidx);
 			break;
 		}
