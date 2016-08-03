@@ -2,16 +2,13 @@
 
 static bool gc_flag;
 
-static const int NEWSPACE_SIZE = (1024 * 1024);
+static const int NEWSPACE_SIZE = (1024 * 1024 * 4);
 
 static ISObject *from_space_start;
 static ISObject *to_space_start;
 static ISObject *free_space;
 
-static void is_assert(bool b)
-{
-	if (!b) abort();
-}
+#define is_assert(b) assert(b)
 
 void *is_xrealloc(void *p, size_t size)
 {
@@ -63,7 +60,7 @@ static size_t obj_size(ISObject obj)
 		case IS_OUTPUT_STRING_STREAM_TYPE:
 			return sizeof(ISStream);
 		case IS_VECTOR_TYPE:
-			return sizeof(ISVector) + sizeof(ISObject) * IS_VECTOR_LENGTH(obj);
+			return sizeof(ISVector) + sizeof(ISObject) * (IS_VECTOR_LENGTH(obj) - 1);
 		default:
 			printf("unknwon type: %d\n", IS_HEAP_OBJECT_TYPE(obj));
 			exit(EXIT_FAILURE);
@@ -72,22 +69,27 @@ static size_t obj_size(ISObject obj)
 
 static bool from_space_p(ISObject obj)
 {
-	return (ISObject)from_space_start <= obj && obj <= (ISObject)from_space_start + NEWSPACE_SIZE;
+	return (ISObject)from_space_start <= obj && obj < ((ISObject)from_space_start + NEWSPACE_SIZE);
 }
 
 static bool to_space_p(ISObject obj)
 {
-	return (ISObject)to_space_start <= obj && obj <= (ISObject)to_space_start + NEWSPACE_SIZE;
+	return (ISObject)to_space_start <= obj && obj < ((ISObject)to_space_start + NEWSPACE_SIZE);
 }
 
 static size_t alignment(size_t size)
 {
-	return (size + IS_OBJECT_MASK) & ~IS_OBJECT_MASK;
+	size_t size2 = (size + IS_OBJECT_MASK) & ~IS_OBJECT_MASK;
+	is_assert(size2 >= size);
+	return size2;
 }
 
 static ISObject copy(ISObject obj)
 {
 	if (!IS_POINTER_P(obj)) return obj;
+	if (!from_space_p(obj) && !to_space_p(obj)) {
+		return obj;
+	}
 
 	if (from_space_p(obj) && !to_space_p(IS_HEAP_OBJECT_FORWARDING(obj))) {
 		size_t size = alignment(obj_size(obj));
@@ -141,7 +143,6 @@ static void copy_gc(void)
 
 	puts("### GC START");
 
-	ISObject *scan = to_space_start;
 	free_space = to_space_start;
 
 	for (int i = 0; i < is_symbol_table_size; i++) {
@@ -163,6 +164,7 @@ static void copy_gc(void)
 		is_dynamic_stack[i].value = copy(is_dynamic_stack[i].value);
 	}
 
+	ISObject *scan = to_space_start;
 	while (scan < free_space) {
 		copy_obj_children((ISObject)scan);
 		size_t bytes = alignment(obj_size((ISObject)scan));
@@ -184,9 +186,11 @@ static bool require_gc(size_t size)
 
 static ISObject* alloc(size_t size)
 {
+#if 0
 	if (256 <= size) {
 		return is_xmalloc(size);
 	}
+#endif
 
 	size = alignment(size);
 #if 1
@@ -311,7 +315,7 @@ ISObject is_make_output_stream(FILE *ptr)
 
 ISObject is_make_vector(int len, ISObject *v)
 {
-	ISVector *vector = (ISVector*)alloc(sizeof(ISVector) + sizeof(ISObject) * len);
+	ISVector *vector = (ISVector*)alloc(sizeof(ISVector) + sizeof(ISObject) * (len - 1));
 	vector->forwarding = 0;
 	vector->type = IS_VECTOR_TYPE;
 	vector->len = len;
