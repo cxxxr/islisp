@@ -10,6 +10,13 @@ static ISObject *free_space;
 
 #define is_assert(b) assert(b)
 
+static void is_debug_puts(const char *str)
+{
+#if 0
+	puts(str);
+#endif
+}
+
 void *is_xrealloc(void *p, size_t size)
 {
 	p = realloc(p, size);
@@ -63,18 +70,18 @@ static size_t obj_size(ISObject obj)
 			return sizeof(ISVector) + sizeof(ISObject) * (IS_VECTOR_LENGTH(obj) - 1);
 		default:
 			printf("unknwon type: %d\n", IS_HEAP_OBJECT_TYPE(obj));
-			exit(EXIT_FAILURE);
+			abort();
 	}
 }
 
 static bool from_space_p(ISObject obj)
 {
-	return (ISObject)from_space_start <= obj && obj < ((ISObject)from_space_start + NEWSPACE_SIZE);
+	return (ISObject)from_space_start <= obj && obj <= ((ISObject)from_space_start + NEWSPACE_SIZE);
 }
 
 static bool to_space_p(ISObject obj)
 {
-	return (ISObject)to_space_start <= obj && obj < ((ISObject)to_space_start + NEWSPACE_SIZE);
+	return (ISObject)to_space_start <= obj && obj <= ((ISObject)to_space_start + NEWSPACE_SIZE);
 }
 
 static size_t alignment(size_t size)
@@ -87,9 +94,7 @@ static size_t alignment(size_t size)
 static ISObject copy(ISObject obj)
 {
 	if (!IS_POINTER_P(obj)) return obj;
-	if (!from_space_p(obj) && !to_space_p(obj)) {
-		return obj;
-	}
+	is_assert(from_space_p(obj) || to_space_p(obj));
 
 	if (from_space_p(obj) && !to_space_p(IS_HEAP_OBJECT_FORWARDING(obj))) {
 		size_t size = alignment(obj_size(obj));
@@ -111,14 +116,18 @@ static void copy_obj_children(ISObject obj)
 			IS_CONS_CDR(obj) = copy(IS_CONS_CDR(obj));
 			break;
 		case IS_SYMBOL_TYPE:
-			if (!IS_NULL(IS_SYMBOL_NAME(obj)))
+			if (!IS_NULL(IS_SYMBOL_NAME(obj))) {
 				IS_SYMBOL_NAME(obj) = copy(IS_SYMBOL_NAME(obj));
-			if (!IS_NULL(IS_SYMBOL_GLOBAL(obj)))
+			}
+			if (!IS_NULL(IS_SYMBOL_GLOBAL(obj))) {
 				IS_SYMBOL_GLOBAL(obj) = copy(IS_SYMBOL_GLOBAL(obj));
-			if (!IS_NULL(IS_SYMBOL_PROPERTY(obj)))
+			}
+			if (!IS_NULL(IS_SYMBOL_PROPERTY(obj))) {
 				IS_SYMBOL_PROPERTY(obj) = copy(IS_SYMBOL_PROPERTY(obj));
-			if (!IS_NULL(IS_SYMBOL_FUNCTION(obj)))
+			}
+			if (!IS_NULL(IS_SYMBOL_FUNCTION(obj))) {
 				IS_SYMBOL_FUNCTION(obj) = copy(IS_SYMBOL_FUNCTION(obj));
+			}
 			break;
 		case IS_USER_FUNCTION_TYPE:
 			IS_USER_FUNCTION_NAME(obj) = copy(IS_USER_FUNCTION_NAME(obj));
@@ -141,7 +150,7 @@ static void copy_gc(void)
 {
 	if (!gc_flag) return;
 
-	puts("### GC START");
+	is_debug_puts("### GC START");
 
 	free_space = to_space_start;
 
@@ -176,15 +185,16 @@ static void copy_gc(void)
 	from_space_start = to_space_start;
 	to_space_start = tmp;
 
-	puts("### GC END");
+	is_debug_puts("### GC END");
 }
 
 static bool require_gc(size_t size)
 {
-	return (free_space + size / sizeof(ISObject) >= from_space_start + NEWSPACE_SIZE / sizeof(ISObject));
+	return (free_space + size / sizeof(free_space) >=
+		from_space_start + NEWSPACE_SIZE / sizeof(free_space));
 }
 
-static ISObject* alloc(size_t size)
+static ISObject alloc(size_t size)
 {
 #if 0
 	if (256 <= size) {
@@ -193,7 +203,7 @@ static ISObject* alloc(size_t size)
 #endif
 
 	size = alignment(size);
-#if 1
+#if 0
 	if (require_gc(size)) {
 		copy_gc();
 		if (require_gc(size)) {
@@ -202,10 +212,13 @@ static ISObject* alloc(size_t size)
 	}
 #else
 	copy_gc();
+	if (require_gc(size)) {
+		is_error("allocation fail");
+	}
 #endif
-	ISObject *result = free_space;
+	ISObject result = (ISObject)free_space;
 	free_space += (size / sizeof(ISObject));
-	return (ISObject*)result;
+	return (ISObject)result;
 }
 
 
