@@ -227,6 +227,39 @@ static ISObject alloc(size_t size)
 	return (ISObject)result;
 }
 
+void is_check_valid_pointer(ISObject obj)
+{
+	if (IS_POINTER_P(obj) && obj != NULL) {
+		if (!from_space_p(obj)) {
+			is_println(obj);
+			abort();
+		}
+		switch (IS_HEAP_OBJECT_TYPE(obj)) {
+			case IS_CONS_TYPE:
+				is_check_valid_pointer(IS_CONS_CAR(obj));
+				is_check_valid_pointer(IS_CONS_CDR(obj));
+				break;
+			case IS_SYMBOL_TYPE:
+				is_check_valid_pointer(IS_SYMBOL_NAME(obj));
+				is_check_valid_pointer(IS_SYMBOL_PROPERTY(obj));
+				is_check_valid_pointer(IS_SYMBOL_GLOBAL(obj));
+				is_check_valid_pointer(IS_SYMBOL_FUNCTION(obj));
+				break;
+			case IS_USER_FUNCTION_TYPE:
+				is_check_valid_pointer(IS_USER_FUNCTION_NAME(obj));
+				break;
+			case IS_CLOSURE_TYPE:
+				is_check_valid_pointer(IS_CLOSURE_ENV(obj));
+				break;
+			case IS_VECTOR_TYPE:
+				for (int i = 0; i < IS_VECTOR_LENGTH(obj); i++) {
+					is_check_valid_pointer(IS_VECTOR_DATA(obj)[i]);
+				}
+				break;
+		}
+	}
+}
+
 
 
 ISObject is_make_float(double v)

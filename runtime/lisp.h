@@ -314,6 +314,7 @@ void *is_xmalloc(size_t);
 void is_gc_enable(void);
 void is_gc_prohibition(void);
 void is_gc_disable(void);
+void is_check_valid_pointer(ISObject);
 void is_heap_init(void);
 ISObject is_make_float(double);
 ISObject is_make_cons(ISObject *, ISObject *);
