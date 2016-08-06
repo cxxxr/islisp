@@ -148,10 +148,16 @@ void is_set_property_f(int IS_UNUSED(argc))
 		plist = IS_CONS_CDR(IS_CONS_CDR(plist));
 	}
 
-	ISObject tmp = is_make_cons(value, &IS_SYMBOL_PROPERTY(*symbol));
-	int shidx = is_shelter_add(&tmp);
+	ISObject plist = IS_SYMBOL_PROPERTY(*symbol);
+	int shidx = is_shelter_add(&plist);
+	ISObject plist2 = is_make_cons(value, &plist);
+	is_shelter_add(&plist2);
+	ISObject plist3 = is_make_cons(propname, &plist2);
+	is_shelter_add(&plist3);
+
 	// write barrior
-	IS_SYMBOL_PROPERTY(*symbol) = is_make_cons(propname, &tmp);
+	IS_SYMBOL_PROPERTY(*symbol) = plist3;
+
 	is_shelter_set_index(shidx);
 
  END:
