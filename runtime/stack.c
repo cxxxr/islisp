@@ -83,26 +83,18 @@ void is_stack_build_list(int n)
 		return;
 	}
 
-	ISObject head = is_nil;
-	ISObject tail = is_nil;
+	ISObject acc = is_nil;
+	int shidx = is_shelter_add(&acc);
 
-	int drop_n = n;
-	int shidx = -1;
-
-	while (n > 0) {
-		if (head == is_nil) {
-			tail = head = is_make_cons(is_stack_peek_ptr(n--), &is_nil);
-			shidx = is_shelter_add(&head);
-		} else {
-			IS_CONS_CDR(tail) = is_make_cons(is_stack_peek_ptr(n--), &is_nil);
-			tail = IS_CONS_CDR(tail);
-		}
+	for (int i = n; i > 0; i--) {
+		acc = is_make_cons(is_stack_peek_ptr(i), &acc);
+		is_shelter_add(&acc);
 	}
 
-	if (shidx != -1)
-		is_shelter_set_index(shidx);
+	is_stack_drop_push(n, acc);
+	is_nreverse_f(1);
 
-	is_stack_drop_push(drop_n, head);
+	is_shelter_set_index(shidx);
 }
 
 void is_stack_print(void)
