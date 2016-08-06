@@ -204,6 +204,12 @@ struct dynamic_stack_element {
 extern struct dynamic_stack_element *is_dynamic_stack;
 extern int is_dynamic_sp;
 
+enum is_gc_state {
+	IS_GC_DISABLE,
+	IS_GC_ENABLE,
+	IS_GC_PROHIBITION,
+};
+
 // error.c
 void is_error(const char *, ...);
 void is_argc_error(ISObject, int);
@@ -306,6 +312,7 @@ void is_shelter_init(void);
 void *is_xrealloc(void *, size_t);
 void *is_xmalloc(size_t);
 void is_gc_enable(void);
+void is_gc_prohibition(void);
 void is_gc_disable(void);
 void is_heap_init(void);
 ISObject is_make_float(double);

@@ -1,6 +1,6 @@
 #include "lisp.h"
 
-static bool gc_flag;
+static enum is_gc_state gc_state = IS_GC_DISABLE;
 
 static const int NEWSPACE_SIZE = (1024 * 1024 * 4);
 
@@ -36,12 +36,17 @@ void *is_xmalloc(size_t size)
 
 void is_gc_enable(void)
 {
-	gc_flag = true;
+	gc_state = IS_GC_ENABLE;
+}
+
+void is_gc_prohibition(void)
+{
+	gc_state = IS_GC_PROHIBITION;
 }
 
 void is_gc_disable(void)
 {
-	gc_flag = false;
+	gc_state = IS_GC_DISABLE;
 }
 
 static size_t obj_size(ISObject obj)
@@ -148,7 +153,8 @@ static void copy_obj_children(ISObject obj)
 
 static void copy_gc(void)
 {
-	if (!gc_flag) return;
+	if (gc_state == IS_GC_DISABLE) return;
+	if (gc_state == IS_GC_PROHIBITION) abort();
 
 	is_debug_puts("### GC START");
 
