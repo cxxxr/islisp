@@ -99,9 +99,11 @@ static size_t alignment(size_t size)
 static ISObject copy(ISObject obj)
 {
 	if (!IS_POINTER_P(obj)) return obj;
-	is_assert(from_space_p(obj) || to_space_p(obj));
+	if (!(from_space_p(obj) || to_space_p(obj))) {
+		abort();
+	}
 
-	if (from_space_p(obj) && !to_space_p(IS_HEAP_OBJECT_FORWARDING(obj))) {
+	if (/*from_space_p(obj) &&*/ !to_space_p(IS_HEAP_OBJECT_FORWARDING(obj))) {
 		size_t size = alignment(obj_size(obj));
 		memcpy(free_space, IS_OBJECT_PTR(obj), size);
 		IS_HEAP_OBJECT_FORWARDING(obj) = (ISObject)free_space;
@@ -159,6 +161,7 @@ static void copy_gc(void)
 	is_debug_puts("### GC START");
 
 	free_space = to_space_start;
+	memset(to_space_start, 0, NEWSPACE_SIZE);
 
 	for (int i = 0; i < is_symbol_table_size; i++) {
 		if (!IS_NULL(is_symbol_table[i])) {
@@ -186,6 +189,8 @@ static void copy_gc(void)
 		is_assert(bytes > 0);
 		scan += bytes / sizeof(ISObject);
 	}
+
+	memset(from_space_start, 0, NEWSPACE_SIZE);
 
 	ISObject *tmp = from_space_start;
 	from_space_start = to_space_start;
@@ -229,7 +234,7 @@ static ISObject alloc(size_t size)
 
 void is_check_valid_pointer(ISObject obj)
 {
-	if (IS_POINTER_P(obj) && obj != NULL) {
+	if (IS_POINTER_P(obj) && IS_NULL(obj)) {
 		if (!from_space_p(obj)) {
 			is_println(obj);
 			abort();
