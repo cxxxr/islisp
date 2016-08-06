@@ -1085,7 +1085,7 @@
              (cc-add-const ctx arg1)))
 
 (define-instruction CALL (ctx arg1 arg2)
-  (cc-format 1 "is_call(~A, ~A);"
+  (cc-format 1 "is_call(&~A, ~A);"
              (cc-add-const ctx arg1)
              arg2))
 
